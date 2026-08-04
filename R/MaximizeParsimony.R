@@ -1709,22 +1709,18 @@ MaximizeParsimony <- function(
   # See dev/plans/2026-07-29-t374b-xform-rooting-policy.md (Option 3).
   bestScore <- result$best_score
   if (useXform && length(outTrees) > 0L) {
-    canonicalScores <- TreeLength(
-      structure(outTrees, class = "multiPhylo"),
-      dataset, inapplicable = "xform", hierarchy = hierarchy
+    # The second argument is evaluated only if `outTrees` turns out not to be
+    # binary, so the ordinary path builds nothing extra.
+    bestScore <- .XformPoolScore(
+      outTrees,
+      lapply(resultTrees[result$scores == result$best_score],
+             function(edgeMat) {
+               tr <- treeTpl
+               tr[["edge"]] <- edgeMat
+               Renumber(tr)
+             }),
+      dataset, hierarchy, result$best_score
     )
-    bestScore <- min(canonicalScores)
-    if (diff(range(canonicalScores)) > sqrt(.Machine$double.eps)) {
-      # Pool membership is chosen on search-time scores taken at differing
-      # rootings (`result$scores` above), so trees held to be equally
-      # parsimonious can differ once scored at one rooting.  Not silently
-      # averaged away: this is the open residue of T-374, and staying quiet about
-      # it is what let the reporting gap survive this long.
-      warning("Returned trees do not share a length at a common rooting (",
-              paste(signif(range(canonicalScores), 8), collapse = " to "),
-              "); reporting the smallest.  The x-transformation's score is ",
-              "rooting-dependent -- see ?MaximizeParsimony.")
-    }
   }
 
   # --- Output ---
@@ -1768,6 +1764,69 @@ MaximizeParsimony <- function(
     naDiag = result$na_diag,
     class = "multiPhylo"
   )
+}
+
+# Reduce a returned pool's canonical-rooting lengths to the single score
+# `MaximizeParsimony()` reports under `inapplicable = "xform"`, falling back to
+# `fallback` (the search's own best score) where the pool cannot supply one.
+#
+# `collapse = TRUE` contracts unsupported branches, and `TreeLength()` scores
+# the topology it is given -- the length of a polytomy is that of its best
+# resolution, which the Sankoff kernel does not compute, so a contracted pool
+# reports a number that is too small (T-401).  Nothing but the HSJ/XFORM no-op
+# in `compute_collapsed_flags_aggressive()` currently keeps `outTrees` binary,
+# and this must not depend on that staying in place: score instead the binary
+# pool the trees were contracted from, whose lengths are the same because only
+# zero-length branches are removed.  Kept separate from its caller because a
+# default search cannot reach that path, so this is the only place it can be
+# exercised.
+.XformPoolScore <- function(pool, binaryPool, dataset, hierarchy, fallback) {
+  nEdgeBinary <- 2L * length(dataset) - 2L
+  .Binary <- function(trees) {
+    vapply(trees, function(tr) dim(tr[["edge"]])[[1]], integer(1)) == nEdgeBinary
+  }
+  if (!all(.Binary(pool))) {
+    pool <- binaryPool[.Binary(binaryPool)]
+  }
+  if (length(pool) == 0L) {
+    return(fallback)
+  }
+  .ReportXformScore(
+    TreeLength(structure(pool, class = "multiPhylo"), dataset,
+               inapplicable = "xform", hierarchy = hierarchy),
+    fallback)
+}
+
+# Reduce a pool's canonical-rooting lengths to the one number reported.
+# `fallback` covers a pool with no finite length: `diff(range(.))` is then
+# `NaN`, which `if` cannot branch on -- the abort a degenerate hierarchy block
+# used to produce (T-394).
+.ReportXformScore <- function(canonicalScores, fallback) {
+  finite <- is.finite(canonicalScores)
+  if (!all(finite)) {
+    warning(sum(!finite), " of ", length(canonicalScores),
+            " returned trees have no ",
+            "finite x-transformation length; ",
+            if (any(finite)) "reporting the shortest of the rest."
+            else "reporting the search's own score.")
+  }
+  if (!any(finite)) {
+    return(fallback)
+  }
+  canonicalScores <- canonicalScores[finite]
+
+  if (diff(range(canonicalScores)) > sqrt(.Machine$double.eps)) {
+    # Pool membership is chosen on search-time scores taken at differing
+    # rootings (`result$scores` in the caller), so trees held to be equally
+    # parsimonious can differ once scored at one rooting.  Not silently
+    # averaged away: this is the open residue of T-374, and staying quiet about
+    # it is what let the reporting gap survive this long.
+    warning("Returned trees do not share a length at a common rooting (",
+            paste(signif(range(canonicalScores), 8), collapse = " to "),
+            "); reporting the smallest.  The x-transformation's score is ",
+            "rooting-dependent -- see ?MaximizeParsimony.")
+  }
+  min(canonicalScores)
 }
 
 #' Launch tree search graphical user interface
