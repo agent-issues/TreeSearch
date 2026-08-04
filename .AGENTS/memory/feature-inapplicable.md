@@ -94,3 +94,24 @@ secondaries supported (state count = ∏k_i + 1). Nested hierarchies deferred.
 Integration complete: `ScoringMode::XFORM` in `score_tree()` dispatches
 Fitch(non-hierarchy) + Sankoff(recoded). `MaximizeParsimony()` accepts
 `inapplicable = "xform"`. End-to-end search verified.
+
+### State spaces come from `contrast`, never from token strings (T-393/T-394)
+
+A secondary's levels are the applicable states its column's tokens contrast
+against — the R-side counterpart of `DataSet::token_states`, which HSJ reads.
+Do not reach for `unique()` on the token strings: an ambiguity token such as
+`"{01}"` is then a level of its own (a Hamming step from both `"0"` and `"1"`,
+and one more factor in `prod(k_i)`), and level ordering follows locale
+collation. A token admitting every applicable state establishes none.
+
+Two consequences to preserve when touching `RecodeHierarchy()`:
+
+- `tip_sec_known` holds a **bit mask** of admissible levels per (tip,
+  secondary), 0 = unconstrained — not a single level index. Both consumers are
+  in `src/ts_rcpp.cpp` (`unpack_xform` and `ts_sankoff_test`); change them
+  together.
+- A secondary with no observed level is carried as one unobserved level, not
+  dropped. `ValidateHierarchy()` runs before both taxon-subsetting sites
+  (`R/MaximizeParsimony.R`, `R/tree_length.R`), so dropping a taxon can leave a
+  block degenerate in a dataset that validated. Keeping it in `nSec` keeps the
+  gain cost a property of the hierarchy, not of the taxa sampled.

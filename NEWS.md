@@ -1,5 +1,33 @@
 # To integrate into 2.0.0 notes
 
+- `inapplicable = "xform"` no longer treats an ambiguity token as a state of its
+  own.  A hierarchy block took its secondary characters' states from the distinct
+  tokens observed in each column, so a polymorphic cell such as `{01}` was
+  admitted alongside `0` and `1` and sat one step from both rather than matching
+  either: a tree paid for a step that no resolution of the polymorphism requires.
+  Each such cell also multiplied the block's combination count -- four binary
+  secondary characters with one polymorphic cell apiece produced 82 states where
+  17 suffice, tripping the "large state space" warning and paying its quadratic
+  per-node cost -- and left the ordering of states at the mercy of the locale's
+  string collation.  States are now read from the dataset's contrast matrix, as
+  `inapplicable = "hsj"` already did.
+
+  **X-transformation lengths of data containing polymorphic or partly ambiguous
+  secondary characters will therefore change, and will not increase.**  A tree's
+  length is now the smallest that any resolution of its ambiguity attains, which
+  is what the criterion means by it.  Data coded only with unambiguous tokens,
+  `?` and `-` are unaffected.
+
+- `inapplicable = "xform"` no longer returns an infinite length when a secondary
+  character has no observed state.  Scoring a tree drops any taxon the tree does
+  not bear, and dropping the only taxon at which a secondary character was
+  resolved left that character with an empty state space: no state was
+  admissible at any tip, so `TreeLength()` returned `Inf` without comment and
+  `MaximizeParsimony()` stopped with "missing value where TRUE/FALSE needed".
+  Such a character is now carried as a single unobserved state, contributing
+  nothing to any tree's length while still counting towards its block's gain
+  cost -- which the hierarchy fixes, not the taxa that happen to be sampled.
+
 - `inapplicable = "xform"` scores are now reported at a canonical rooting, so a
   reported score is reproducible.  The x-transformation's step matrix is
   asymmetric -- a gain costs one more than the number of secondary characters it
