@@ -257,15 +257,12 @@ test_that("Contracted trees are not scored as though binary", {
 
   reference <- TreeLength(binary, ds, hierarchy = h, inapplicable = "xform")
 
-  # Precondition: handing the contracted tree straight to `TreeLength()` does
-  # not reproduce that length.  Tolerant of an error, because the kernel-level
-  # boundary check on non-binary edge matrices (T-400) turns the silent form of
-  # this into a loud one.
-  direct <- tryCatch(
-    TreeLength(structure(list(polytomous), class = "multiPhylo"), ds,
-               hierarchy = h, inapplicable = "xform"),
-    error = function(e) NA_real_)
-  expect_false(isTRUE(all.equal(direct, reference)))
+  # What handing `polytomous` straight to `TreeLength()` returns is deliberately
+  # NOT asserted here: until the kernel bounds-checks a non-binary edge matrix
+  # (T-400) that call writes past the end of its Fitch word vector, which no
+  # `tryCatch()` can contain -- measured as a silently wrong length on x86 and a
+  # `double free or corruption` abort on arm64.  That is the behaviour this call
+  # site must avoid, so the test must not perform it either.
 
   # The reporting path scores the binary pool the tree was contracted from,
   # and says so -- that length is not one `TreeLength()` of a returned tree
