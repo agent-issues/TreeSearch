@@ -1776,10 +1776,16 @@ MaximizeParsimony <- function(
 # reports a number that is too small (T-401).  Nothing but the HSJ/XFORM no-op
 # in `compute_collapsed_flags_aggressive()` currently keeps `outTrees` binary,
 # and this must not depend on that staying in place: score instead the binary
-# pool the trees were contracted from, whose lengths are the same because only
-# zero-length branches are removed.  Kept separate from its caller because a
+# pool the trees were contracted from.  Kept separate from its caller because a
 # default search cannot reach that path, so this is the only place it can be
 # exercised.
+#
+# That substitution reports the length of a tree the user is not handed, which
+# is the discrepancy T-385 was filed for, so it warns.  Whoever lifts the
+# HSJ/XFORM no-op can retire the warning only by making the collapse itself
+# hierarchy-aware: the flags are decided over `ds.blocks[]`, the Fitch term
+# alone, so an XFORM-blind unblocking would contract branches that are not
+# zero-length under the Sankoff term and the two pools would genuinely differ.
 .XformPoolScore <- function(pool, binaryPool, dataset, hierarchy, fallback) {
   nEdgeBinary <- 2L * length(dataset) - 2L
   .Binary <- function(trees) {
@@ -1787,6 +1793,10 @@ MaximizeParsimony <- function(
   }
   if (!all(.Binary(pool))) {
     pool <- binaryPool[.Binary(binaryPool)]
+    warning("Returned trees contain polytomies, whose x-transformation length ",
+            "is that of their best resolution; reporting the length of the ",
+            "binary trees they were contracted from, which `TreeLength()` of a ",
+            "returned tree need not reproduce.", call. = FALSE)
   }
   if (length(pool) == 0L) {
     return(fallback)
@@ -1800,7 +1810,9 @@ MaximizeParsimony <- function(
 # Reduce a pool's canonical-rooting lengths to the one number reported.
 # `fallback` covers a pool with no finite length: `diff(range(.))` is then
 # `NaN`, which `if` cannot branch on -- the abort a degenerate hierarchy block
-# used to produce (T-394).
+# used to produce (T-394).  A non-finite member is reported here and then
+# dropped, so it does not also raise the T-374 residue warning below; silence
+# there means "the finite lengths agree", not "the residue is fixed".
 .ReportXformScore <- function(canonicalScores, fallback) {
   finite <- is.finite(canonicalScores)
   if (!all(finite)) {
@@ -1808,7 +1820,7 @@ MaximizeParsimony <- function(
             " returned trees have no ",
             "finite x-transformation length; ",
             if (any(finite)) "reporting the shortest of the rest."
-            else "reporting the search's own score.")
+            else "reporting the search's own score.", call. = FALSE)
   }
   if (!any(finite)) {
     return(fallback)
@@ -1818,13 +1830,12 @@ MaximizeParsimony <- function(
   if (diff(range(canonicalScores)) > sqrt(.Machine$double.eps)) {
     # Pool membership is chosen on search-time scores taken at differing
     # rootings (`result$scores` in the caller), so trees held to be equally
-    # parsimonious can differ once scored at one rooting.  Not silently
-    # averaged away: this is the open residue of T-374, and staying quiet about
-    # it is what let the reporting gap survive this long.
+    # parsimonious can differ once scored at one rooting.  Not silently averaged
+    # away: this is the open residue of T-374.
     warning("Returned trees do not share a length at a common rooting (",
             paste(signif(range(canonicalScores), 8), collapse = " to "),
             "); reporting the smallest.  The x-transformation's score is ",
-            "rooting-dependent -- see ?MaximizeParsimony.")
+            "rooting-dependent -- see ?MaximizeParsimony.", call. = FALSE)
   }
   min(canonicalScores)
 }

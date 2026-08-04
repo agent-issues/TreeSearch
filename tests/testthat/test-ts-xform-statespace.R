@@ -10,9 +10,9 @@ library("TreeTools")
 # `MatrixToPhyDat()` rather than the `phangorn::phyDat()` helper the rest of the
 # xform suite uses: only it puts an ambiguity token such as "{01}" in the
 # contrast matrix as the state SET it denotes, which is the whole subject here.
-xss_dat <- function(mat) MatrixToPhyDat(mat)
+XssDat <- function(mat) MatrixToPhyDat(mat)
 
-xss_tree <- function() ape::read.tree(text = "(((t1,t2),(t3,t4)),(t5,t6));")
+XssTree <- function() ape::read.tree(text = "(((t1,t2),(t3,t4)),(t5,t6));")
 
 
 # ===== T-393: an ambiguity token is a state set, not a state =================
@@ -30,16 +30,16 @@ test_that("Polymorphic secondary costs no more than its best resolution", {
     "0", "-",
     "1", "1"
   ), nrow = 6, byrow = TRUE, dimnames = list(paste0("t", 1:6), NULL))
-  ds <- xss_dat(mat)
+  ds <- XssDat(mat)
   h <- CharacterHierarchy("1" = 2L)
-  tree <- xss_tree()
+  tree <- XssTree()
 
   # "{01}" is a subset of {"0", "1"}, so the block's length is the smallest any
   # concrete resolution attains -- never more.
   resolved <- vapply(c("0", "1"), function(state) {
     m <- mat
     m[3, 2] <- state
-    TreeLength(tree, xss_dat(m), hierarchy = h, inapplicable = "xform")
+    TreeLength(tree, XssDat(m), hierarchy = h, inapplicable = "xform")
   }, numeric(1))
   expect_equal(
     TreeLength(tree, ds, hierarchy = h, inapplicable = "xform"),
@@ -64,11 +64,22 @@ test_that("Polymorphic cells do not inflate the state space", {
     "1", "0",    "1",    "0",    "{01}",
     "0", "-",    "-",    "-",    "-"
   ), nrow = 7, byrow = TRUE, dimnames = list(paste0("t", 1:7), NULL))
-  ds <- xss_dat(mat)
+  ds <- XssDat(mat)
   h <- CharacterHierarchy("1" = 2:5)
 
   expect_silent(recoded <- RecodeHierarchy(ds, h))
   expect_equal(recoded$sankoff_chars[[1]]$n_states, 17)
+})
+
+
+test_that("A secondary beyond the mask's width is reported, not mis-recoded", {
+  # One bit per level, so 31 is the most a secondary can carry.
+  tokens <- c(0:9, LETTERS)[1:32]
+  mat <- cbind(c("0", rep("1", 32)), c("-", tokens))
+  rownames(mat) <- paste0("t", seq_len(33))
+
+  expect_error(RecodeHierarchy(XssDat(mat), CharacterHierarchy("1" = 2L)),
+               "more than 31 informative states")
 })
 
 
@@ -83,14 +94,14 @@ test_that("Polymorphism narrows a multistate secondary without freeing it", {
     "0", "-",
     "1", "1"
   ), nrow = 6, byrow = TRUE, dimnames = list(paste0("t", 1:6), NULL))
-  ds <- xss_dat(mat)
+  ds <- XssDat(mat)
   h <- CharacterHierarchy("1" = 2L)
-  tree <- xss_tree()
+  tree <- XssTree()
 
   resolved <- vapply(c("0", "1", "2"), function(state) {
     m <- mat
     m[2, 2] <- state
-    TreeLength(tree, xss_dat(m), hierarchy = h, inapplicable = "xform")
+    TreeLength(tree, XssDat(m), hierarchy = h, inapplicable = "xform")
   }, numeric(1))
   # Precondition: resolving to "2" is strictly cheaper here, so treating the
   # token as wholly unknown would be a measurable under-count.
@@ -100,16 +111,51 @@ test_that("Polymorphism narrows a multistate secondary without freeing it", {
     TreeLength(tree, ds, hierarchy = h, inapplicable = "xform"),
     min(resolved[c("0", "1")])
   )
+
+  recoded <- RecodeHierarchy(ds, h)$sankoff_chars[[1]]
+  # Three levels plus absent, not four plus absent: the length assertion above
+  # holds under the old encoding too, so this is what pins the state space.
+  expect_equal(recoded$n_states, 4)
+  # A mask of more than one bit, which is what distinguishes the mask encoding
+  # from the single level index it replaced.
+  expect_equal(recoded$tip_sec_known[2, 1], 3L)
+})
+
+
+test_that("Search and TreeLength agree on a multi-bit secondary mask", {
+  # The mask is read in two places -- `unpack_xform()` for the search and
+  # `ts_sankoff_test()` for `TreeLength()` -- and a divergence between them
+  # would mis-guide the search while the reported score stayed self-consistent.
+  # Only a mask of more than one bit tells the two encodings apart, so drive
+  # both over data that produces one.
+  mat <- matrix(c(
+    "1", "2",
+    "1", "{01}",
+    "1", "2",
+    "1", "0",
+    "0", "-",
+    "1", "1"
+  ), nrow = 6, byrow = TRUE, dimnames = list(paste0("t", 1:6), NULL))
+  ds <- XssDat(mat)
+  h <- CharacterHierarchy("1" = 2L)
+  expect_equal(RecodeHierarchy(ds, h)$sankoff_chars[[1]]$tip_sec_known[2, 1], 3L)
+
+  res <- MaximizeParsimony(ds, tree = XssTree(), hierarchy = h,
+                           inapplicable = "xform", maxReplicates = 3L,
+                           verbosity = 0L)
+  expect_equal(attr(res, "score"),
+               min(TreeLength(res, ds, hierarchy = h, inapplicable = "xform")))
 })
 
 
 # ===== T-394: a secondary with no observed state ============================
-# `ValidateHierarchy()` runs before both taxon-subsetting sites, so dropping a
-# taxon can leave a secondary all-gap/all-missing in a dataset that validated.
-# A zero-width state space then admitted no state at any tip: every tip cost
-# was infinite and the block's length `Inf`.
+# Validation asks that a secondary be coded inapplicable where its primary is
+# absent, never that any state of it remain observed, so dropping a taxon can
+# leave a secondary all-gap/all-missing in a dataset that validated.  A
+# zero-width state space then admitted no state at any tip: every tip cost was
+# infinite and the block's length `Inf`.
 
-xss_degenerate <- function() {
+XssDegenerate <- function() {
   # Character 3 is resolved at s5 alone; scoring any tree over {s1..s4} drops
   # s5, leaving char 3 with nothing observed.
   matrix(c(
@@ -122,27 +168,33 @@ xss_degenerate <- function() {
 }
 
 test_that("Unobserved secondary leaves a finite length after taxon dropping", {
-  ds <- xss_dat(xss_degenerate())
+  ds <- XssDat(XssDegenerate())
   h <- CharacterHierarchy("1" = 2:3)
   tree <- ape::read.tree(text = "((s1,s2),(s3,s4));")
 
   # Precondition: the dataset as supplied validates and recodes normally.
   expect_equal(RecodeHierarchy(ds, h)$sankoff_chars[[1]]$n_states, 3)
 
-  expect_true(is.finite(
-    TreeLength(tree, ds, hierarchy = h, inapplicable = "xform")))
+  # The finite value, not merely finiteness: HSJ scores this 1.5, and every
+  # concrete reading of the unobserved secondary gives the same 2.
+  expect_equal(TreeLength(tree, ds, hierarchy = h, inapplicable = "xform"), 2)
 })
 
 
 test_that("Search over a subset with an unobserved secondary completes", {
-  ds <- xss_dat(xss_degenerate())
+  ds <- XssDat(XssDegenerate())
   h <- CharacterHierarchy("1" = 2:3)
   tree <- ape::read.tree(text = "((s1,s2),(s3,s4));")
 
   res <- suppressWarnings(
     MaximizeParsimony(ds, tree = tree, hierarchy = h, inapplicable = "xform",
                       maxReplicates = 2L, verbosity = 0L))
-  expect_true(is.finite(attr(res, "score")))
+  # Not merely finite: the reported score must still be the length of a tree
+  # returned, which is what the taxon-subset path threatens.
+  expect_equal(
+    attr(res, "score"),
+    min(TreeLength(res, TreeSearch:::.Recompress(ds[res[[1]][["tip.label"]]]),
+                   hierarchy = h, inapplicable = "xform")))
 })
 
 
@@ -215,8 +267,20 @@ test_that("Contracted trees are not scored as though binary", {
     error = function(e) NA_real_)
   expect_false(isTRUE(all.equal(direct, reference)))
 
-  # The reporting path scores the binary pool the tree was contracted from.
-  expect_equal(
-    TreeSearch:::.XformPoolScore(list(polytomous), list(binary), ds, h, -1),
-    reference)
+  # The reporting path scores the binary pool the tree was contracted from,
+  # and says so -- that length is not one `TreeLength()` of a returned tree
+  # reproduces, which is the discrepancy T-385 was filed for.
+  expect_warning(
+    substituted <- TreeSearch:::.XformPoolScore(list(polytomous), list(binary),
+                                               ds, h, -1),
+    "Returned trees contain polytomies")
+  expect_equal(substituted, reference)
+
+  # With nothing binary to fall back on, the search's own score is reported
+  # rather than a length read off a contracted tree.
+  expect_warning(
+    fellBack <- TreeSearch:::.XformPoolScore(list(polytomous),
+                                             list(polytomous), ds, h, -1),
+    "Returned trees contain polytomies")
+  expect_equal(fellBack, -1)
 })

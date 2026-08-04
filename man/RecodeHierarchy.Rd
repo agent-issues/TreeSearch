@@ -46,15 +46,16 @@ Implements the x-transformation recoding of
 \insertCite{Goloboff2021;textual}{TreeSearch}.
 Each hierarchy block (one controlling primary character plus \eqn{n}
 secondary characters) is combined into a single step-matrix character
-with \eqn{\prod k_i + 1} states and an asymmetric cost matrix.
+with \eqn{\prod \max(k_i, 1) + 1} states and an asymmetric cost matrix.
 }
 \details{
 \subsection{State encoding}{
 
 State 0 represents "primary absent".
-States \eqn{1 \ldots \prod k_i} represent all possible combinations of
-secondary character states (where \eqn{k_i} is the number of informative
-states of secondary character \eqn{i}).
+States \eqn{1 \ldots \prod \max(k_i, 1)} represent all possible combinations
+of secondary character states (where \eqn{k_i} is the number of informative
+states of secondary character \eqn{i}; a secondary with none contributes a
+single unobserved state, as below).
 
 The informative levels of a secondary character are read from the dataset's
 \code{contrast} matrix, not from the token strings it carries.  An ambiguity token
@@ -66,7 +67,7 @@ none.  A secondary whose levels are all unobserved -- reachable by dropping
 taxa from a dataset that validated -- is carried as a single unobserved
 level: it adds nothing to any tree's length, but still counts towards the
 block's gain cost, which is a property of the hierarchy rather than of the
-taxa sampled.
+taxa sampled.  A single secondary may take at most 31 levels.
 }
 
 \subsection{Cost matrix}{

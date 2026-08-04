@@ -111,7 +111,9 @@ Two consequences to preserve when touching `RecodeHierarchy()`:
   in `src/ts_rcpp.cpp` (`unpack_xform` and `ts_sankoff_test`); change them
   together.
 - A secondary with no observed level is carried as one unobserved level, not
-  dropped. `ValidateHierarchy()` runs before both taxon-subsetting sites
-  (`R/MaximizeParsimony.R`, `R/tree_length.R`), so dropping a taxon can leave a
-  block degenerate in a dataset that validated. Keeping it in `nSec` keeps the
-  gain cost a property of the hierarchy, not of the taxa sampled.
+  dropped. `ValidateHierarchy()` asks that a secondary be coded inapplicable
+  where its primary is absent, never that any state of it remain observed, so
+  the taxon subsetting in `MaximizeParsimony()` / `TreeLength()` can leave a
+  block degenerate in a dataset that validated — and re-validating after the
+  subset would not catch it either. Keeping it in `nSec` keeps the gain cost a
+  property of the hierarchy, not of the taxa sampled.

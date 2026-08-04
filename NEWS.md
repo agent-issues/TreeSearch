@@ -16,7 +16,9 @@
   secondary characters will therefore change, and will not increase.**  A tree's
   length is now the smallest that any resolution of its ambiguity attains, which
   is what the criterion means by it.  Data coded only with unambiguous tokens,
-  `?` and `-` are unaffected.
+  `?` and `-` are unaffected by this change (though they may be affected by the
+  next).  A single secondary character may now take at most 31 states, and one
+  exceeding that is reported as an error rather than recoded incorrectly.
 
 - `inapplicable = "xform"` no longer returns an infinite length when a secondary
   character has no observed state.  Scoring a tree drops any taxon the tree does
