@@ -1794,9 +1794,13 @@ MaximizeParsimony <- function(
   if (!all(.Binary(pool))) {
     pool <- binaryPool[.Binary(binaryPool)]
     warning("Returned trees contain polytomies, whose x-transformation length ",
-            "is that of their best resolution; reporting the length of the ",
-            "binary trees they were contracted from, which `TreeLength()` of a ",
-            "returned tree need not reproduce.", call. = FALSE)
+            "is that of their best resolution; reporting ",
+            if (length(pool) > 0L) {
+              paste0("the length of the binary trees they were contracted ",
+                     "from, which `TreeLength()` of a returned tree need not ",
+                     "reproduce.")
+            } else "the search's own score.",
+            call. = FALSE)
   }
   if (length(pool) == 0L) {
     return(fallback)

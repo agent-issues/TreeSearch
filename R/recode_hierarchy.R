@@ -101,16 +101,12 @@ RecodeHierarchy <- function(dataset, hierarchy) {
   nChar <- length(idx)
   nTip <- length(dataset)
 
-  # Original character matrix (taxon × char), as token strings
-  origMat <- do.call(rbind, lapply(dataset, function(x) {
-    allLevels[x[idx]]
-  }))
-  # ... and as `contrast` row indices, which is what a secondary's state space
-  # must be read from.  Deriving it from the token strings instead made an
-  # ambiguity token such as "{01}" a level of its own -- one Hamming step from
-  # both "0" and "1" rather than matching either, and one more factor in the
-  # combination count (T-393).  `tokenLevels` is the R-side counterpart of
-  # `DataSet::token_states`, which the HSJ path already reads.
+  # Original character matrix (taxon × char), as `contrast` row indices -- which
+  # is what a secondary's state space must be read from.  Reading it off the
+  # token strings instead made an ambiguity token such as "{01}" a level of its
+  # own: one Hamming step from both "0" and "1" rather than matching either, and
+  # one more factor in the combination count (T-393).  `tokenLevels` is the
+  # R-side counterpart of `DataSet::token_states`, which the HSJ path reads.
   tokenMat <- do.call(rbind, lapply(dataset, function(x) x[idx]))
   applicable <- which(levels != "-")
   tokenLevels <- lapply(seq_len(nrow(contrast)), function(tk) {
@@ -200,7 +196,7 @@ RecodeHierarchy <- function(dataset, hierarchy) {
     tipStates <- integer(nTip)
     tipSecKnown <- matrix(0L, nrow = nTip, ncol = nSec)
     for (t in seq_len(nTip)) {
-      pri <- origMat[t, ctrl]
+      pri <- allLevels[tokenMat[t, ctrl]]
 
       if (pri == "?") {
         tipStates[t] <- -1L  # fully ambiguous
