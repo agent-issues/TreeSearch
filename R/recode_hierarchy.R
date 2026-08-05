@@ -4,15 +4,28 @@
 #' \insertCite{Goloboff2021;textual}{TreeSearch}.
 #' Each hierarchy block (one controlling primary character plus \eqn{n}
 #' secondary characters) is combined into a single step-matrix character
-#' with \eqn{\prod k_i + 1} states and an asymmetric cost matrix.
+#' with \eqn{\prod \max(k_i, 1) + 1} states and an asymmetric cost matrix.
 #'
 #' @details
 #' ## State encoding
 #'
 #' State 0 represents "primary absent".
-#' States \eqn{1 \ldots \prod k_i} represent all possible combinations of
-#' secondary character states (where \eqn{k_i} is the number of informative
-#' states of secondary character \eqn{i}).
+#' States \eqn{1 \ldots \prod \max(k_i, 1)} represent all possible combinations
+#' of secondary character states (where \eqn{k_i} is the number of informative
+#' states of secondary character \eqn{i}; a secondary with none contributes a
+#' single unobserved state, as below).
+#'
+#' The informative levels of a secondary character are read from the dataset's
+#' `contrast` matrix, not from the token strings it carries.  An ambiguity token
+#' such as `"{01}"` therefore denotes the *set* of states it contrasts against,
+#' as it does under `inapplicable = "hsj"`, rather than becoming a level of its
+#' own; a token that admits every applicable state (`"?"`, or an ambiguity
+#' spanning them all) shows that no state is established and so contributes
+#' none.  A secondary whose levels are all unobserved -- reachable by dropping
+#' taxa from a dataset that validated -- is carried as a single unobserved
+#' level: it adds nothing to any tree's length, but still counts towards the
+#' block's gain cost, which is a property of the hierarchy rather than of the
+#' taxa sampled.  A single secondary may take at most 31 levels.
 #'
 #' ## Cost matrix
 #'
@@ -61,9 +74,10 @@
 #'         row \code{i} giving the 1-based level index of each secondary for
 #'         present-state \code{i + 1}.}
 #'       \item{`tip_sec_known`}{Integer matrix (\code{n_tip × n_secondary}).
-#'         For tips with \code{tip_states == -2}, column \code{s} holds the
-#'         1-based level index of secondary \code{s} if it was observed, or
-#'         0 if it was unknown; used to constrain the admissible states of a
+#'         For tips with \code{tip_states == -2}, column \code{s} holds a
+#'         bit mask of the levels secondary \code{s} may take at that tip
+#'         (bit \code{i - 1} set = level \code{i} admissible), or 0 where it
+#'         is unconstrained; used to restrict the admissible states of a
 #'         partially-known combination.}
 #'     }
 #'   }
@@ -82,13 +96,26 @@ RecodeHierarchy <- function(dataset, hierarchy) {
 
   idx <- attr(dataset, "index")
   allLevels <- attr(dataset, "allLevels")
+  levels <- attr(dataset, "levels")
+  contrast <- attr(dataset, "contrast")
   nChar <- length(idx)
   nTip <- length(dataset)
 
-  # Original character matrix (taxon × char), as token strings
-  origMat <- do.call(rbind, lapply(dataset, function(x) {
-    allLevels[x[idx]]
-  }))
+  # Original character matrix (taxon × char), as `contrast` row indices -- which
+  # is what a secondary's state space must be read from.  Reading it off the
+  # token strings instead made an ambiguity token such as "{01}" a level of its
+  # own: one Hamming step from both "0" and "1" rather than matching either, and
+  # one more factor in the combination count (T-393).  `tokenLevels` is the
+  # R-side counterpart of `DataSet::token_states`, which the HSJ path reads.
+  tokenMat <- do.call(rbind, lapply(dataset, function(x) x[idx]))
+  applicable <- which(levels != "-")
+  tokenLevels <- lapply(seq_len(nrow(contrast)), function(tk) {
+    applicable[contrast[tk, applicable] > 0]
+  })
+  # A token admitting every applicable state establishes no state at all; this
+  # is the role "?" played under the old string test, and an ambiguity spanning
+  # the whole state space says exactly as much.
+  tokenGeneric <- lengths(tokenLevels) == length(applicable)
 
   .RecodeBlock <- function(node) {
     ctrl <- node$controlling
@@ -99,13 +126,26 @@ RecodeHierarchy <- function(dataset, hierarchy) {
            "Block controlled by character ", ctrl, " has sub-hierarchies.")
     }
 
-    # Informative levels for each secondary (exclude "-" and "?")
+    # Informative levels for each secondary, as state indices into `levels`
     secLevels <- lapply(deps, function(d) {
-      sort(setdiff(unique(origMat[, d]), c("-", "?")))
+      tokens <- unique(tokenMat[, d])
+      sort(unique(unlist(tokenLevels[tokens[!tokenGeneric[tokens]]])))
     })
     secNStates <- vapply(secLevels, length, integer(1))
+    if (any(secNStates > 31L)) {
+      stop("Secondary character ", deps[which.max(secNStates)],
+           " has more than 31 informative states; the x-transformation ",
+           "cannot recode it.")
+    }
+    # A secondary with no informative level -- every tip gap or fully ambiguous
+    # -- is carried as one unobserved level rather than dropped, so that a
+    # present primary still has a state to take (a zero-width state space made
+    # every tip cost infinite, T-394) and the block's gain cost still reflects
+    # how many secondaries the primary controls, not how many the sampled taxa
+    # happen to resolve.
+    secNLevels <- pmax(secNStates, 1L)
 
-    nPresent <- prod(secNStates)
+    nPresent <- prod(secNLevels)
     nStates <- nPresent + 1L
     nSec <- length(deps)
 
@@ -120,7 +160,7 @@ RecodeHierarchy <- function(dataset, hierarchy) {
     # All present-state combinations (expand.grid: first dim varies fastest)
     if (nSec > 0L) {
       comboGrid <- as.matrix(expand.grid(
-        lapply(secLevels, seq_along)
+        lapply(secNLevels, seq_len)
       ))
     } else {
       # No secondaries: 2 states (absent + one present)
@@ -145,17 +185,18 @@ RecodeHierarchy <- function(dataset, hierarchy) {
     }
 
     # --- Tip states ---
-    # `tipSecKnown[t, s]` records, per tip and per secondary, the 1-based
-    # level index of that secondary IF it was observed for this tip, or 0 if
-    # it was unknown ("-"/"?"/unrecognised token). Only consulted when
-    # `tipStates[t] == -2` (present, but not every secondary was resolvable):
-    # it lets the admissible-state set be restricted to combinations
-    # consistent with whichever secondaries WERE observed, rather than
-    # freeing every present state (T-379).
+    # `tipSecKnown[t, s]` records, per tip and per secondary, a bit mask of the
+    # levels that secondary may take at this tip (bit i - 1 = level i), or 0
+    # where it is unconstrained. Only consulted when `tipStates[t] == -2`
+    # (present, but not every secondary was resolvable): it lets the
+    # admissible-state set be restricted to combinations consistent with
+    # whatever the secondaries WERE observed to be, rather than freeing every
+    # present state (T-379). A mask rather than a single level index because a
+    # polymorphic token narrows a secondary without resolving it (T-393).
     tipStates <- integer(nTip)
     tipSecKnown <- matrix(0L, nrow = nTip, ncol = nSec)
     for (t in seq_len(nTip)) {
-      pri <- origMat[t, ctrl]
+      pri <- allLevels[tokenMat[t, ctrl]]
 
       if (pri == "?") {
         tipStates[t] <- -1L  # fully ambiguous
@@ -171,28 +212,39 @@ RecodeHierarchy <- function(dataset, hierarchy) {
         next
       }
 
-      secVals <- origMat[t, deps]
+      secVals <- tokenMat[t, deps]
       anyUnknown <- FALSE
       levelIndices <- integer(nSec)
+      secMasks <- integer(nSec)
       known <- logical(nSec)
 
       for (s in seq_len(nSec)) {
-        if (secVals[s] %in% c("-", "?")) {
+        if (tokenGeneric[[secVals[s]]]) {
           anyUnknown <- TRUE
           next
         }
-        mi <- match(secVals[s], secLevels[[s]])
-        if (is.na(mi)) {
-          anyUnknown <- TRUE
+        # Positions, within this secondary's levels, that its token admits.
+        # `secLevels[[s]]` is the union over the non-generic tokens of this very
+        # column, so a non-generic token's states are all levels of it and the
+        # match cannot fail.
+        pos <- match(tokenLevels[[secVals[s]]], secLevels[[s]])
+        if (length(pos) == 1L) {
+          levelIndices[s] <- pos
+          known[s] <- TRUE
           next
         }
-        levelIndices[s] <- mi
-        known[s] <- TRUE
+        anyUnknown <- TRUE
+        # Admitting every level (or none of them) constrains nothing, and 0
+        # says so more cheaply than the equivalent full mask.
+        if (length(pos) > 0L && length(pos) < secNStates[[s]]) {
+          secMasks[s] <- sum(bitwShiftL(1L, pos - 1L))
+        }
       }
 
       if (anyUnknown) {
-        tipStates[t] <- -2L  # present, one or more secondaries unknown
-        tipSecKnown[t, known] <- levelIndices[known]
+        tipStates[t] <- -2L  # present, one or more secondaries unresolved
+        secMasks[known] <- bitwShiftL(1L, levelIndices[known] - 1L)
+        tipSecKnown[t, ] <- secMasks
         next
       }
 
@@ -201,7 +253,7 @@ RecodeHierarchy <- function(dataset, hierarchy) {
       multiplier <- 1L
       for (s in seq_len(nSec)) {
         rowIdx <- rowIdx + (levelIndices[s] - 1L) * multiplier
-        multiplier <- multiplier * secNStates[s]
+        multiplier <- multiplier * secNLevels[s]
       }
       tipStates[t] <- rowIdx  # 1-based present state = Sankoff state index
     }

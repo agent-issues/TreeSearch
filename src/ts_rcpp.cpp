@@ -1979,8 +1979,9 @@ static void unpack_xform(Nullable<List> xformConfig,
       }
       int ns = ns_vec[ch];
       // Only needed to resolve state == -2 (present, secondaries partially
-      // unknown); combo_grid is n_present x n_sec, tip_sec_known is
-      // n_tip x n_sec (see RecodeHierarchy()).
+      // unknown); combo_grid is n_present x n_sec holding 1-based level
+      // indices, tip_sec_known is n_tip x n_sec holding a per-secondary bit
+      // mask of admissible levels, 0 = unconstrained (see RecodeHierarchy()).
       IntegerMatrix combo_grid = as<IntegerMatrix>(rc["combo_grid"]);
       IntegerMatrix tip_sec = as<IntegerMatrix>(rc["tip_sec_known"]);
       int n_sec = combo_grid.ncol();
@@ -2007,15 +2008,16 @@ static void unpack_xform(Nullable<List> xformConfig,
         if (state == -1) {
           for (int s = 0; s < ns; ++s) tip_ptr[s] = 0.0;
         } else if (state == -2) {
-          // Present, but one or more secondaries were unknown for this tip.
-          // Restrict admissible present-states to those consistent with the
-          // secondaries that WERE observed (T-379); previously this freed
+          // Present, but one or more secondaries were unresolved for this tip.
+          // Restrict admissible present-states to those consistent with what
+          // the secondaries WERE observed to be (T-379); previously this freed
           // every present state regardless of any known secondaries.
           for (int s = 1; s < ns; ++s) {
             bool admissible = true;
             for (int d = 0; d < n_sec; ++d) {
               int known = tip_sec(t, d);
-              if (known != 0 && combo_grid(s - 1, d) != known) {
+              if (known != 0 &&
+                  (known & (1 << (combo_grid(s - 1, d) - 1))) == 0) {
                 admissible = false;
                 break;
               }
@@ -3377,10 +3379,11 @@ List ts_sankoff_test(
                tip_states_r.nrow(), n_tip, n_tip);
   }
 
-  // combo_grids_r[ch] (n_present x n_sec) and tip_sec_known_r[ch]
-  // (n_tip x n_sec) resolve state == -2 to the states consistent with
-  // whichever secondaries WERE observed (T-379); absent (NULL), -2 falls
-  // back to freeing every present state, as before.
+  // combo_grids_r[ch] (n_present x n_sec, 1-based level indices) and
+  // tip_sec_known_r[ch] (n_tip x n_sec, per-secondary bit mask of admissible
+  // levels, 0 = unconstrained) resolve state == -2 to the states consistent
+  // with what the secondaries WERE observed to be (T-379); absent (NULL), -2
+  // falls back to freeing every present state, as before.
   bool have_combo = combo_grids_r.isNotNull() && tip_sec_known_r.isNotNull();
   List combo_grids, tip_sec_knowns;
   if (have_combo) {
@@ -3411,7 +3414,8 @@ List ts_sankoff_test(
           bool admissible = true;
           for (int d = 0; d < n_sec; ++d) {
             int known = tip_sec(t, d);
-            if (known != 0 && combo_grid(s - 1, d) != known) {
+            if (known != 0 &&
+                (known & (1 << (combo_grid(s - 1, d) - 1))) == 0) {
               admissible = false;
               break;
             }

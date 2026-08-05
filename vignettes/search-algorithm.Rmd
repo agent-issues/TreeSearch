@@ -308,11 +308,17 @@ output stage has since canonicalised.
 canonical rooting -- the first taxon of the dataset -- before reporting, and
 `TreeLength()` canonicalises identically, so a reported x-transformation score
 is the length of the tree in hand, and one topology has one length.
+Where `collapse = TRUE` has contracted a branch, the binary trees it was
+contracted from are scored instead, with a warning: the length of a contracted
+tree is the length of its best resolution rather than of the edge matrix as
+given, which the Sankoff kernel does not compute.
 This affects reporting only: the quantity the search optimises is unchanged.
 
 Because pool membership is still decided on scores taken at differing rootings,
 the returned trees need not all share that canonical length;
 `MaximizeParsimony()` warns when they do not.
+It likewise warns, and falls back to the score the search itself compared,
+should a returned tree have no finite length at all.
 
 ### Zero-length edge skipping
 

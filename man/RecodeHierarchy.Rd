@@ -30,9 +30,10 @@ row-major: \code{cost_matrix[from, to]}.}
 row \code{i} giving the 1-based level index of each secondary for
 present-state \code{i + 1}.}
 \item{\code{tip_sec_known}}{Integer matrix (\code{n_tip × n_secondary}).
-For tips with \code{tip_states == -2}, column \code{s} holds the
-1-based level index of secondary \code{s} if it was observed, or
-0 if it was unknown; used to constrain the admissible states of a
+For tips with \code{tip_states == -2}, column \code{s} holds a
+bit mask of the levels secondary \code{s} may take at that tip
+(bit \code{i - 1} set = level \code{i} admissible), or 0 where it
+is unconstrained; used to restrict the admissible states of a
 partially-known combination.}
 }
 }
@@ -45,15 +46,28 @@ Implements the x-transformation recoding of
 \insertCite{Goloboff2021;textual}{TreeSearch}.
 Each hierarchy block (one controlling primary character plus \eqn{n}
 secondary characters) is combined into a single step-matrix character
-with \eqn{\prod k_i + 1} states and an asymmetric cost matrix.
+with \eqn{\prod \max(k_i, 1) + 1} states and an asymmetric cost matrix.
 }
 \details{
 \subsection{State encoding}{
 
 State 0 represents "primary absent".
-States \eqn{1 \ldots \prod k_i} represent all possible combinations of
-secondary character states (where \eqn{k_i} is the number of informative
-states of secondary character \eqn{i}).
+States \eqn{1 \ldots \prod \max(k_i, 1)} represent all possible combinations
+of secondary character states (where \eqn{k_i} is the number of informative
+states of secondary character \eqn{i}; a secondary with none contributes a
+single unobserved state, as below).
+
+The informative levels of a secondary character are read from the dataset's
+\code{contrast} matrix, not from the token strings it carries.  An ambiguity token
+such as \code{"{01}"} therefore denotes the \emph{set} of states it contrasts against,
+as it does under \code{inapplicable = "hsj"}, rather than becoming a level of its
+own; a token that admits every applicable state (\code{"?"}, or an ambiguity
+spanning them all) shows that no state is established and so contributes
+none.  A secondary whose levels are all unobserved -- reachable by dropping
+taxa from a dataset that validated -- is carried as a single unobserved
+level: it adds nothing to any tree's length, but still counts towards the
+block's gain cost, which is a property of the hierarchy rather than of the
+taxa sampled.  A single secondary may take at most 31 levels.
 }
 
 \subsection{Cost matrix}{

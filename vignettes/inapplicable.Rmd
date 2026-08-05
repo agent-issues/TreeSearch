@@ -79,6 +79,16 @@ This asymmetry captures the idea that independently evolving a complex
 structure (and its associated secondary characters) is less parsimonious
 than losing it.
 
+A secondary character's states are read from the dataset's contrast matrix, so
+an ambiguity token such as `{01}` denotes the set of states it stands for
+rather than a state of its own: a tree's length is the smallest that any
+resolution of the ambiguity attains.
+A secondary character with no observed state -- which scoring a tree that bears
+only some of the taxa can produce -- contributes nothing to any tree's length,
+but still counts towards its block's gain cost, since that cost is fixed by the
+hierarchy rather than by the taxa sampled.
+A single secondary character may take at most 31 states.
+
 ```{r xform, eval = FALSE}
 hierarchy <- CharacterHierarchy("1" = 2:5)
 MaximizeParsimony(dataset, hierarchy = hierarchy,
