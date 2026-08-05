@@ -122,12 +122,20 @@ test_that("Polymorphism narrows a multistate secondary without freeing it", {
 })
 
 
-test_that("Search and TreeLength agree on a multi-bit secondary mask", {
+test_that("A multi-bit mask drives the search without mis-scoring", {
   # The mask is read in two places -- `unpack_xform()` for the search and
-  # `ts_sankoff_test()` for `TreeLength()` -- and a divergence between them
-  # would mis-guide the search while the reported score stayed self-consistent.
-  # Only a mask of more than one bit tells the two encodings apart, so drive
-  # both over data that produces one.
+  # `ts_sankoff_test()` for `TreeLength()`.  This drives the first of them over
+  # data that produces a mask of more than one bit, which is the only shape that
+  # tells the mask encoding apart from the single level index it replaced.
+  #
+  # It does NOT establish that the two readings agree, and no test here does.
+  # `MaximizeParsimony()` derives its reported score by calling `TreeLength()`
+  # on the pool (T-385), so comparing the two is true by construction; and on
+  # this data every reading of the mask yields the same optimum (3, brute-forced
+  # over all 105 six-taxon topologies for `{01}` and for each of `0`, `1`, `2`
+  # and `?`), so the search cannot be misled into a measurable difference
+  # either.  What keeps the two sites honest is that they are edited together --
+  # recorded in `.AGENTS/memory/feature-inapplicable.md`.
   mat <- matrix(c(
     "1", "2",
     "1", "{01}",
@@ -143,8 +151,14 @@ test_that("Search and TreeLength agree on a multi-bit secondary mask", {
   res <- MaximizeParsimony(ds, tree = XssTree(), hierarchy = h,
                            inapplicable = "xform", maxReplicates = 3L,
                            verbosity = 0L)
-  expect_equal(attr(res, "score"),
-               min(TreeLength(res, ds, hierarchy = h, inapplicable = "xform")))
+  # The optimum, computed without reference to anything the search reports.
+  topologies <- lapply(seq_len(NUnrooted(6)), function(i) {
+    RootTree(as.phylo(i - 1L, 6, tipLabels = names(ds)), 1)
+  })
+  expect_equal(
+    attr(res, "score"),
+    min(TreeLength(structure(topologies, class = "multiPhylo"), ds,
+                   hierarchy = h, inapplicable = "xform")))
 })
 
 
@@ -189,8 +203,10 @@ test_that("Search over a subset with an unobserved secondary completes", {
   res <- suppressWarnings(
     MaximizeParsimony(ds, tree = tree, hierarchy = h, inapplicable = "xform",
                       maxReplicates = 2L, verbosity = 0L))
-  # Not merely finite: the reported score must still be the length of a tree
-  # returned, which is what the taxon-subset path threatens.
+  # Not merely finite: this also pins `.XformPoolScore()`'s edge-count test
+  # against the SUBSET dataset.  Were it measured against the dataset as
+  # supplied, no returned tree would look binary, the pool would empty and the
+  # search's own mid-search score would be reported here instead.
   expect_equal(
     attr(res, "score"),
     min(TreeLength(res, TreeSearch:::.Recompress(ds[res[[1]][["tip.label"]]]),
