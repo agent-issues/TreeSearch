@@ -61,4 +61,6 @@ patch file. Coordination files live on `cpp-search` only.
 - Prefer `TreeTools` over `ape` (see `AGENTS.md`).
 - `dev/red-team/log.md`, `findings-archive.md` and `migration-map*.tsv` are
   **frozen**. Never add a row to any of them, and never to
-  `escalation-backlog.md` — findings are issues.
+  `escalation-backlog.md` — findings are issues. `log.md` additionally carries
+  no live field: round records are Discussions, and the model-version legend
+  lives in `dev/red-team/focus-areas.md`.

@@ -11,9 +11,9 @@ Seams that were **re-eligible** but not next in the rotation. Historically the `
 skill reopened entries here when a rung's model version moved on (`/red-team revisit`); that
 now happens by filing an issue or posting to the area's Discussion category.
 
-This file does **not** advance `last_focus:` and does not replace `log.md` — each item is a
-pointer back to the round that recorded the residual. Full context stays in `log.md`; only
-the *ask* and the *rung* live here.
+This file does **not** consume a rotation slot — each item is a pointer back to the round
+that recorded the residual. Full context stays with that round (a Discussion post, or the
+frozen `log.md` for pre-2026-08 rounds); only the *ask* and the *rung* live here.
 
 **Rung rule.** Version bump before rung bump: `opus-4.8 dry → opus-5 → fable`. A dry verdict
 is evidence about the version that ran, not about the rung. See the model-version legend at

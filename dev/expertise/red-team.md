@@ -2,9 +2,13 @@
 
 > **This file is the curated "lessons learned" — not the operational machinery.**
 > The live rotation now lives under `dev/red-team/` (per the `/red-team` skill):
-> - `dev/red-team/focus-areas.md` — the 10-area rotation table + per-area `start_tier`
-> - `dev/red-team/log.md` — append-only round log + `last_focus:` pointer
-> - `dev/red-team/findings.md` — verified OPEN findings
+> - `dev/red-team/focus-areas.md` — the 15-area rotation table, per-area `start_tier`,
+>   and the model-version legend
+> - **GitHub Discussions**, one `NN-<area-name>` category per area — round records, and
+>   the thing rotation is derived from (oldest most-recent post wins). Nothing records
+>   which area is next; the `/red-team` skill asks.
+> - **GitHub issues** labelled `red-team` — verified OPEN findings
+> - `dev/red-team/log.md` — frozen pre-2026-08 round history; no live field, never edited
 >
 > Run a round with `/red-team`. Keep this file for the *patterns* that recur across
 > rounds; keep the *records* in `dev/red-team/`. (Migrated 2026-06-16 from

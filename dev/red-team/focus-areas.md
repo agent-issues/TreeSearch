@@ -1,17 +1,22 @@
 # Red-team focus areas — TreeSearch
 
 Rotation table for the `/red-team` skill. Built once, edited rarely. Each `/red-team`
-invocation reviews **one** area (the next in rotation, see `last_focus:` at the bottom of
-`log.md`) at its earned tier, then records the round in `log.md`. Verified non-trivial
-findings are filed as GitHub issues in `agent-issues/TreeSearch` (labelled `red-team`,
-`sev:high|med|low`, `area:N`). Durable lessons (bug patterns, fragile areas) live in
-`../expertise/red-team.md`.
+invocation reviews **one** area at its earned tier, then records the round as a GitHub
+Discussion in that area's `NN-<area-name>` category. Verified non-trivial findings are filed
+as GitHub issues in `agent-issues/TreeSearch` (labelled `red-team`, `sev:high|med|low`,
+`area:N`). Durable lessons (bug patterns, fragile areas) live in `../expertise/red-team.md`.
+
+**Which area is next is not recorded anywhere — it is asked.** The next area is the one
+whose most recent Discussion has the oldest `createdAt`, an area with no Discussion taking
+precedence. The rule and its query live in the `/red-team` skill (Normal run, steps 1-2) and
+are deliberately not restated here: a second copy is a second thing that can drift from the
+first, which is exactly what the retired `last_focus:` pointer was.
 
 ## start_tier
 
 `start_tier` is the tier a **never-visited or freshly-rotated** area starts at. Unlike the
 skill's default (everything `sonnet`), these tiers **encode measured maturity** from the
-ported round history (`log.md`): areas whose seams have only ever yielded subtle,
+ported round history (`log.md`, frozen): areas whose seams have only ever yielded subtle,
 opus-class bugs start higher; immature seams that still bleed cheap bugs start at `sonnet`.
 The rotation still adjusts per recorded yield — a dry round escalates one tier, a yielding
 round re-visits at the same tier with a fresh agent, a high-severity signal escalates
@@ -19,9 +24,8 @@ immediately. Treat these as the starting point, not a ceiling.
 
 **A tier is a rung, not a model.** A dry verdict is scoped to the *version* that produced it,
 and a version bump at the same rung is a cheaper step than a rung bump — so `opus-4.8 dry` goes
-to **Opus 5**, not to fable. The alias→version mapping lives in the model-version legend at the
-top of `log.md`; seams that a version bump has made re-eligible are queued in
-`escalation-backlog.md`.
+to **Opus 5**, not to fable. The alias→version mapping is the legend below; seams that a
+version bump has made re-eligible are queued in `escalation-backlog.md`.
 
 | # | Area | Files | start_tier | Key questions |
 |---|------|-------|-----------|---------------|
@@ -36,7 +40,7 @@ top of `log.md`; seams that a version bump has made re-eligible are queued in
 | 9 | **Wagner & addition trees** | `src/ts_wagner.h/.cpp`, `R/AdditionTree.R`, `R/PolEscapa.R` | **opus** | NA-incremental scoring staleness acceptable? Constraint mapping (LCA-based) correct? Retry loop fires? 3-taxon base case handles all orderings? R-layer index/`sequence` validation (OOB-write guard)? |
 | 10 | **Alternative scoring kernels: Profile/IW/HSJ/XFORM** | `src/ts_fitch.cpp` (IW/profile paths), `src/ts_data.cpp` (precompute), `src/ts_hsj.cpp/.h`, `src/ts_sankoff.cpp/.h`, **`R/recode_hierarchy.R`**, **`R/CharacterHierarchy.R`** (added 2026-08-03 — see the rationale note; treat both as UNMEASURED), plus the criterion's **consumers** where a non-Fitch objective meets Fitch-only machinery: `src/ts_tbr.cpp` (candidate scan / accept / `try_root_edge_moves`), `src/ts_rcpp.cpp` (`unpack_hsj`, `unpack_xform`) | **opus** | `e/(k+e)` delta correct? Profile `info_amounts` lookup + capping matches? `concavity = 1.0` sentinel activates weighted path? `precompute_profile_delta` includes `precomputed_steps` offset? Clipped-subtree homoplasy in screening? HSJ/XFORM (`ds.hierarchy_blocks`/`ds.sankoff_*`) scoring correctness in its own right (not just collapse-flag blindness, cf. T-330 area 11) — does anything else outside collapse assume `ds.blocks[]` is exhaustive? |
 | 11 | **Zero-length-branch collapse (MPT set)** | `src/ts_collapsed.cpp/.h`, `src/ts_splits.cpp` (`compute_collapsed_splits`), `src/ts_rcpp.cpp` (`ts_collapse_flags_batch`), `src/ts_tbr.cpp` (enum `add_collapsed` sites), `R/MaximizeParsimony.R` (collapse block) | **opus** | DEFAULT-ON since 2026-06-24, so every `MaximizeParsimony` call exercises it. Does `compute_collapsed_flags_aggressive` flag the *correct* min-length-0 branches under **IW / profile / NA**, not just EW (verified)? Is it really rooting-invariant, or does tip-rooting+`RenumberTips(labs)` alignment break on constraint trees / user start trees / `RenumberTips` permutations (cf. [[na-validation-alignment-gotcha]])? Can the dedup key `write.tree(SortTree(unroot(t)))` over-merge (two distinct collapsed topologies → same key) or under-merge across rootings? `result$scores == best_score` float-equality safe under IW/profile? Degenerate inputs: star tree, single MPT, 3–4 tips, all-resolved (must be exact no-op), fully-unresolved? Does collapse ever produce a tree that violates an active `constraint`? |
-| 12 | **Red-team process meta-review** | `dev/red-team/focus-areas.md`, `dev/red-team/log.md`, the `red-team` issue list in `agent-issues/TreeSearch`, `dev/red-team/README.md` | **sonnet** | Are any areas too broad — spanning multiple distinct seams such that a finder concentrating on one file family misses another? Are any too narrow — a single-feature scope that would be better merged into a neighbour? Do any areas overlap (same source files audited under two different area headings)? Has any area gone persistently dry (≥ 3 consecutive rounds with zero confirmed findings) — should it be retired, merged, or downtiered? Are there new code seams (recently merged features, new source files) not covered by any existing area? Are tier assignments calibrated to actual yield recorded in `log.md` — any area that keeps surprising at its current tier and should escalate, or one that has been consistently empty and should drop? Propose concrete restructuring actions (split, merge, retire, add, re-tier) with rationale tied to `log.md` yield history. |
+| 12 | **Red-team process meta-review** | `dev/red-team/focus-areas.md`, the `red-team` issue list and the per-area Discussions categories in `agent-issues/TreeSearch`, `dev/red-team/README.md` (`log.md` is frozen history — read it, never edit it) | **sonnet** | Are any areas too broad — spanning multiple distinct seams such that a finder concentrating on one file family misses another? Are any too narrow — a single-feature scope that would be better merged into a neighbour? Do any areas overlap (same source files audited under two different area headings)? Has any area gone persistently dry (≥ 3 consecutive rounds with zero confirmed findings) — should it be retired, merged, or downtiered? Are there new code seams (recently merged features, new source files) not covered by any existing area? Are tier assignments calibrated to actual yield — any area that keeps surprising at its current tier and should escalate, or one that has been consistently empty and should drop? Propose concrete restructuring actions (split, merge, retire, add, re-tier) with rationale tied to yield history (Discussions titles carry the rung, version and severity split; `log.md` holds the pre-2026-08 record). |
 | 13 | **Constrained search correctness** | `src/ts_constraint.h/.cpp`, `src/ts_nni_perturb.cpp`, constraint integration points in `src/ts_driven.cpp` (fuse), `src/ts_parallel.cpp` (parallel-fuse), `src/ts_wagner.cpp`/`src/ts_sector.cpp` (posthoc retry), `src/ts_tbr.cpp` (`regraft_violates_constraint`) | **opus** | Does every `impose_constraint()` caller verify-before-capture, not just trust an improved score (T-213 gap, fixed d9a4f827: `nni_perturb_search` was the one caller that didn't re-check `constraint_node[]` after repair — fuse/parallel-fuse already did)? Any other heuristic-repair or posthoc-retry caller (Wagner build retry, sector) that skips discard-on-failure? Is `impose_one_pass`'s `best_node` reference stale after its own move-out loop's `topology_spr()` calls relocate a node — traced mechanism, produced one `std::bad_alloc` crash under experimental code, did NOT reproduce in 600 stress-test seeds against shipped code; needs a targeted adversarial tree construction, not more random seeds, to confirm either way. Is `map_constraint_nodes`/DFS-timestamp resync correct on every topology-mutation path, including reject paths (cross-check vs area 2's tabu-reject question)? Are nested/overlapping constraint splits handled consistently across TBR clip-gating, Wagner retry, and sector/fuse posthoc paths? |
 | 14 | **Statistics & support metrics** | `src/MaddisonSlatkin.cpp`, `src/expected_mi.cpp`, `src/ts_mc_fitch.cpp`, `src/quartet_concordance.cpp`, `R/Concordance.R`, `R/ParsSim.R`, `R/pp_info_extra_step.r`, `R/WideSample.R`, `R/Consistency.R`, `R/TaxonInfluence.R`, `R/ScoreSpectrum.R`, `R/RandomTreeScore.R`, `R/WhenFirstHit.R`, `R/QuartetResolution.R`, `R/PresentContra.R`, `R/ClusterStrings.R` (last two added 2026-08-05 — owned by no other row, and both reviewed by the first-ever round) | **sonnet** | Is the recursive Maddison–Slatkin DP correct at its recursion boundaries, and does its cache key everything the recurrence depends on? Does the factorial-cache log-space arithmetic under/overflow at realistic tip counts, and are log-space sums accumulated stably? When does the exact DP hand off to the Monte Carlo fallback, and is the fallback's estimator unbiased — or silently substituted without the caller being able to tell? Are concordance-factor statistics well-defined on polytomies, on single-taxon splits, and on characters with missing data? Do the R wrappers validate tip-label correspondence, or index by position (cf. the [[na-validation-alignment-gotcha]] class)? Is any of this reachable from `MaximizeParsimony()`'s default output path the way #16/T-400 was — and does it return a silently wrong number rather than erroring? (carried from the 2026-08-05 round, where this question produced three of the four `sev:high` findings) |
 | 15 | **Legacy pure-R search API** | `R/CustomSearch.R` (`TreeSearch()`), `R/Ratchet.R`, `R/NNI.R`, `R/SPR.R`, `R/TBR.R`, `R/SuccessiveApproximations.R`, `R/tree_rearrangement.R`, `R/morphy-deprecated.R`, `R/Bootstrap.R`, `src/rearrange.cpp` (added 2026-08-06 — the C++ enumerators (`nni`, `spr_moves`, `spr`, `all_spr`, `all_tbr`) that this row's own R functions call; owned by no row, and #147 was found only because an area-15 finder used `TBRMoves()` as a cross-check. UNMEASURED) | **sonnet** | Is `EdgeListScore()` — the default `TreeScorer` for `TreeSearch()`/`Ratchet()`/`Jackknife()`, and one of the four entry points #16 confirms vulnerable — reachable with the out-of-bounds inputs #16 describes? Do the pure-R rearrangement samplers (`NNI`/`SPR`/`TBR`) generate only valid topologies, and do they cover the neighbourhood they claim? Does `SuccessiveApproximations` reweight consistently with the C++ IW kernel, or has it drifted? Do `Bootstrap`/`Jackknife` resample characters with the weights the user supplied? Does anything here still route through removed MorphyLib paths (`morphy-deprecated.R`)? |
@@ -46,7 +50,7 @@ top of `log.md`; seams that a version bump has made re-eligible are queued in
 - **1 Fitch correctness — opus.** Crown jewel; T-300 (systematic delta=−3) and T-306 were
   opus-class subtle bugs. Dry at **opus-4.8** (2026-07-24) ⇒ next visit is **opus (Opus 5)**,
   fresh-angle; **fable** is the escalation only once Opus 5 *also* runs dry (version bump before
-  rung bump — see the model-version legend at the top of `log.md`).
+  rung bump — see the model-version legend at the foot of this file).
 - **2 Topology invariants — opus.** Deep state-restore subtleties; T-235 (SPR stale state),
   T-316 (P1 stale constraint metadata after tabu rejection).
 - **3 Ratchet & perturbation — opus.** Mature, but the `build_reduced_dataset` /
@@ -180,3 +184,46 @@ top of `log.md`; seams that a version bump has made re-eligible are queued in
   and **porting the validated neighbourhood enumerator to the C++ `all_spr`/`all_tbr` paths**,
   which were never audited — the R-side harness (validated against 2(n−3) and 2(n−3)(2n−7))
   found four distinct sampler defects in one pass and should generalise.
+
+---
+
+## Model-version legend (alias → version)
+
+`sonnet` / `opus` / `fable` / `haiku` are Agent-tool aliases that always resolve to the
+*newest* model at that rung; the version behind each moves under us. Every backward-looking
+verdict on record (`ran dry`, `dormant`, `retire`) is therefore evidence about **the version
+that ran**, never about the rung forever.
+
+**This table is project-local by design**, and the `/red-team` skill's *Model versions* rule
+points here for it. The skill is user-level and shared across projects; a dated version table
+baked into it would go stale silently in every project that inherits it. It lived at the top
+of `log.md` until 2026-09-19 and moved here when that file was frozen — this file is read at
+step 1 of every round, so the legend now sits in front of whoever has to reconcile it.
+
+**Reconcile it at round start.** If a rung has moved, add a row and fire the version-bump
+trigger *before* dispatching; otherwise a bump is only ever noticed by a human, and dormant
+seams stay dormant on stale evidence.
+
+| Alias | Version | Period | Notes |
+|-------|---------|--------|-------|
+| `opus` | **Opus 4.8** | every tier-era round through 2026-07-24 | All `tier: opus` entries in `log.md` ran on 4.8. |
+| `opus` | **Opus 5** | current, from 2026-07-27 | Supersedes 4.8 ⇒ every `dry at opus-4.8` verdict is re-eligible at this same rung. |
+| `sonnet` | **Sonnet 4.6** | every tier-era round through 2026-07-24 | All `tier: sonnet` entries in `log.md` ran on 4.6. |
+| `sonnet` | **Sonnet 5** | current, from 2026-07-27 | Supersedes 4.6. |
+| `fable` | *version unconfirmed* | 2026-07-24 area-6 dual-tier round | Not captured at dispatch. The cost observation in that round (fable ≈ opus tokens, not 2×) is scoped to that unknown version. |
+| `fable` | **Fable 5** | current, from 2026-07-27 | |
+| `haiku` | **Haiku 4.5** | every round (verifier tier) | One version across the whole record; no bump to date. |
+
+**Version bump before rung bump.** The ladder *within* a rung comes first:
+`opus-4.8 dry → opus-5 → fable`, not `opus dry → fable`. The 2026-07-27 opus bump therefore
+re-targets every "escalates to FABLE" verdict recorded on 2026-07-24 to **opus (Opus 5) with a
+fresh-angle brief**; fable remains the step after Opus 5 also runs dry. The residuals those
+rounds identified are unchanged — only the rung that attacks them next is (see
+`escalation-backlog.md`).
+
+**Pre-tier rounds are version-unrecorded.** The 2026-05-19 / 2026-05-26 rounds tagged
+`tier: n/a (pre-tier)` predate both the tier system and this legend; the model behind them
+cannot be reconstructed, so they are *not* stamped. Consequence: **a pre-tier dry round cannot
+count toward the "two consecutive dry versions" dormancy bar.** Any area whose
+persistently-dry reputation leans on pre-tier rounds (areas 3 and 10 both do) has at most
+*one* version-scoped dry verdict on record.
