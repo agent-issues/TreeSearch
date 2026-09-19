@@ -12,11 +12,12 @@ hypothetical, it is what the 2026-07-27 rounds measured.
 
 | File | What it is | Who writes it |
 |------|------------|---------------|
-| [`focus-areas.md`](focus-areas.md) | The rotation table: 15 numbered areas, the files each owns, its `start_tier`, and its key questions. Built once, edited rarely. **Adding a row** also needs, and nothing currently automates: a matching `area:N` GitHub label (`gh label create area:N --description "Red-team focus area N"`), and recomputing `N` in `log.md`'s rotation-formula comment (see RT12-01). | A round, when it finds the scope row wrong |
-| [`log.md`](log.md) | Append-only, **newest first**. One entry per round (`area` / `reviewed_by` / `date` / `tier` / `yield` / `notes`), the **model-version legend** at the top, and `last_focus:` at the very bottom. | Every round |
-| **GitHub issues** in [`agent-issues/TreeSearch`](https://github.com/agent-issues/TreeSearch/issues?q=label%3Ared-team) | **OPEN verified findings live here since 2026-08-04**, labelled `red-team` + `sev:high\|med\|low` + `area:N`. Status is GitHub state, so it cannot drift from merge state. Filed *after* verification; trivial issues are fixed inline and noted in `log.md` instead. | A round files; a merged `Fixes #N` closes |
+| [`focus-areas.md`](focus-areas.md) | The rotation table: 15 numbered areas, the files each owns, its `start_tier`, and its key questions. Built once, edited rarely. It also carries the **model-version legend** (alias → version), which the `/red-team` skill points here for. **Adding a row** also needs, and nothing currently automates: a matching `area:N` GitHub label (`gh label create area:N --description "Red-team focus area N"`) and a matching `NN-<area-name>` Discussions category, or the new area is invisible to both the finding query and the rotation query. | A round, when it finds the scope row wrong |
+| **GitHub Discussions**, one `NN-<area-name>` category per area | **Round records live here since 2026-08-06.** One post per round; the title carries the date, area, rung, version and severity split. Rotation is derived from these posts' `createdAt` — nothing records which area is next. | Every round |
+| [`log.md`](log.md) | **FROZEN 2026-09-19, and carries no live field.** The pre-2026-08 round history, newest first. The legend moved to `focus-areas.md` and `last_focus:` was deleted — a hand-maintained rotation pointer that had already gone stale once. Kept because ten other in-repo files cite it by path, the `T-nnn` ids it explains are frozen rather than retired, and at ~275,000 characters it is over four times GitHub's discussion-body limit. | Nobody; read-only |
+| **GitHub issues** in [`agent-issues/TreeSearch`](https://github.com/agent-issues/TreeSearch/issues?q=label%3Ared-team) | **OPEN verified findings live here since 2026-08-04**, labelled `red-team` + `sev:high\|med\|low` + `area:N`. Status is GitHub state, so it cannot drift from merge state. Filed *after* verification; trivial issues are fixed inline and noted in the round's Discussion instead. | A round files; a merged `Fixes #N` closes |
 | [`findings-archive.md`](findings-archive.md) | **FROZEN 2026-08-04.** Terminal-state findings from the file era, one compressed line each. **Offline anti-duplication memory, not a trophy case** — the one thing the tracker doesn't provide. | Nobody; it is closed to new rows |
-| [`migration-map.tsv`](migration-map.tsv) | Every historical `T-nnn` → its issue number, archive entry, or open-PR reference. `T-nnn` ids are **frozen, not retired**: they persist in shipped source comments and in `log.md`. | Written once, at migration |
+| [`migration-map.tsv`](migration-map.tsv) | Every historical `T-nnn` → its issue number, archive entry, or open-PR reference. `T-nnn` ids are **frozen, not retired**: they persist in shipped source comments and in the frozen `log.md`. | Written once, at migration |
 | [`migration-map-todo.tsv`](migration-map-todo.tsv) | Same idea, for the pre-tracker `T-nnn` ids that became `task` issues (#27+) rather than `red-team` findings — kept separate because it maps a different label family. | Written once, at migration |
 | [`escalation-backlog.md`](escalation-backlog.md) | Seams that are re-eligible *now* but are not next in rotation — chiefly ones reopened by a model-version bump. Split into Open / Resolved-history. | `revisit`, and rounds that leave a residual |
 | `proofs/` | Written derivations backing a specific finding (e.g. `union-construct-lower-bound.md`). | Whoever needs one |
@@ -95,7 +96,7 @@ claude -p "/red-team"
 - `/red-team status` — what's been done, what's next
 - `/red-team revisit` — a rung's model version moved; re-mine seams it makes re-eligible
 - `/red-team tidy` — this housekeeping pass. No finder, no verifier, no new findings, and it
-  does **not** advance `last_focus:`
+  posts no round record, so it does not consume a rotation slot
 - `/red-team deep` — Workflow fan-out. Costs far more; explicit opt-in only
 
 Durable lessons that outlive any one round live in [`../expertise/red-team.md`](../expertise/red-team.md).

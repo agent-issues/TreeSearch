@@ -1,92 +1,54 @@
-# Red-team round log — TreeSearch
+# Red-team round history — TreeSearch
 
-**Closed to new entries.** A round's record is a GitHub Discussion, one post per round in
-that area's category, and rotation reads staleness from those posts — see the pointer block
-below. What this file still carries: the model-version legend, the `T-nnn` ids that shipped
-source comments cite, and the frozen pre-2026-08 history, **newest first**.
+**This file is frozen history. It carries no live field, and nothing reads it to decide
+anything.** Not the next area, not the tier, not the model version. If you are running a
+round, everything you need is in [`focus-areas.md`](focus-areas.md) and in the Discussions
+boards; close this file.
 
-**Entry format** (per round): `area`, `reviewed_by`, `date`, `tier` — **which now records the
-model *version* that ran, not just the rung** (`tier: opus (Opus 4.8)`) — `yield` (count of
-*confirmed* findings filed), `notes`. Rounds before 2026-06 predate the Sonnet→Opus→Fable
-tier system and are tagged `tier: n/a (pre-tier)`; the historical `reviewed_by` values
-(`A`–`F`, `d1`–`d8`, `Claude (cpp-search)`) were ephemeral dispatcher agent IDs.
+| What you might be looking for | Where it is now |
+|---|---|
+| The next area in rotation | Derived from Discussions — the area whose most recent post has the oldest `createdAt`. The `/red-team` skill carries the query. |
+| The model-version legend (alias → version) | [`focus-areas.md`](focus-areas.md) |
+| A round record | GitHub Discussions, one post per round in that area's `NN-<area-name>` category |
+| An open finding | GitHub issues, `red-team` + `sev:*` + `area:N` |
+| A terminal-state finding from the file era | [`findings-archive.md`](findings-archive.md) |
+| What a `T-nnn` id maps to | [`migration-map.tsv`](migration-map.tsv) |
 
-This log was migrated 2026-06-16 from `.positai/expertise/red-team.md` (the superset that
-carried the full 2026-05-26 rotation) and extended with the 2026-06-15 CRAN run and the
-2026-06-16 Shiny round. Durable lessons live in `../expertise/red-team.md`; open findings
-as **GitHub issues** in [`agent-issues/TreeSearch`](https://github.com/agent-issues/TreeSearch/issues?q=label%3Ared-team)
-(since 2026-08-04 — `findings.md` is deleted, `findings-archive.md` frozen, `migration-map.tsv`
-maps every historical `T-nnn`); version-bump re-eligible seams in `escalation-backlog.md`.
+## Why this file still exists
 
----
+Its history is genuinely load-bearing and has nowhere better to live. Ten other in-repo
+files cite it by path; the `T-nnn` ids it explains are frozen, not retired, and still appear in
+shipped source comments; and at ~275,000 characters it is over four times GitHub's 65,536-character
+discussion-body limit, so it cannot be archived into a Discussion the way a shorter log can.
+So it stays, read-only, as the pre-2026-08 record.
 
-## Model-version legend (alias → version)
+## Why it has no live fields
 
-A tier is a **rung, not a model**. `sonnet` / `opus` / `fable` / `haiku` are Agent-tool
-aliases that always resolve to the *newest* model at that rung; the version behind each moves
-under us. Every backward-looking verdict in this log (`ran dry`, `dormant`, `retire`) is
-therefore evidence about **the version that ran**, never about the rung forever. This table is
-the project-local mapping the `/red-team` skill's *Model versions* rule points at: add a row
-whenever a rung moves, and reopen whatever the bump makes re-eligible in
-`escalation-backlog.md`.
+It used to hold two: the model-version legend, and `last_focus:`.
 
-| Alias | Version | Period | Notes |
-|-------|---------|--------|-------|
-| `opus` | **Opus 4.8** | every tier-era round through 2026-07-24 | All `tier: opus` entries below ran on 4.8. |
-| `opus` | **Opus 5** | current, from 2026-07-27 | Supersedes 4.8 ⇒ every `dry at opus-4.8` verdict is re-eligible at this same rung. |
-| `sonnet` | **Sonnet 4.6** | every tier-era round through 2026-07-24 | All `tier: sonnet` entries below ran on 4.6. |
-| `sonnet` | **Sonnet 5** | current, from 2026-07-27 | Supersedes 4.6. |
-| `fable` | *version unconfirmed* | 2026-07-24 area-6 dual-tier round | Not captured at dispatch. The cost observation in that round (fable ≈ opus tokens, not 2×) is scoped to that unknown version. |
-| `fable` | **Fable 5** | current, from 2026-07-27 | |
-| `haiku` | **Haiku 4.5** | every round (verifier tier) | One version across the whole log; no bump to date. |
+`last_focus:` was a hand-maintained rotation pointer, and it failed the way hand-maintained
+state does. Four completed rounds and 56 filed findings once sat stranded on an unmerged PR
+while this file still named a stale area — so the next dispatch would have re-swept an area
+already reviewed twice that day. Round records moved to Discussions on 2026-08-06 to decouple
+the record from the merge, which made rotation *derivable* and the pointer redundant. It was
+then left in place as a "historical marker", which turned out to be the worst of both worlds:
+in a sibling project the same residual pointer was read in preference to the boards and sent
+a round to the wrong area. It is now deleted rather than annotated. **Do not reintroduce it.**
 
-**Version bump before rung bump.** The ladder *within* a rung comes first:
-`opus-4.8 dry → opus-5 → fable`, not `opus dry → fable`. The 2026-07-27 opus bump therefore
-re-targets every "escalates to FABLE" verdict recorded on 2026-07-24 to **opus (Opus 5) with a
-fresh-angle brief**; fable remains the step after Opus 5 also runs dry. The residuals those
-rounds identified are unchanged — only the rung that attacks them next is (see
-`escalation-backlog.md`).
+The legend moved to `focus-areas.md` because that file is read at step 1 of every round,
+so the legend now sits in front of whoever has to reconcile it.
 
-**Pre-tier rounds are version-unrecorded.** The 2026-05-19 / 2026-05-26 rounds tagged
-`tier: n/a (pre-tier)` predate both the tier system and this legend; the model behind them
-cannot be reconstructed, so they are *not* stamped. Consequence: **a pre-tier dry round cannot
-count toward the "two consecutive dry versions" dormancy bar.** Any area whose
-persistently-dry reputation leans on pre-tier rounds (areas 3 and 10 both do) has at most
-*one* version-scoped dry verdict on record.
+**Do not add a round entry here.** Post to the area's Discussions category.
 
----
+## One invariant the Discussions boards depend on
 
-## ⚠ Round records have moved to GitHub Discussions — this file is closed to new entries
-
-Every round is now one post in its area's Discussions category, `NN-<area-name>`:
-
-<https://github.com/agent-issues/TreeSearch/discussions>
-
-Why the move: this file sits on a protected branch, so a finished round's record was hostage to
-a code review it has nothing to do with. Four completed rounds and 56 filed findings once sat
-stranded on an unmerged PR while this file still named a stale `last_focus:` — so the next
-dispatch would have re-swept an area that had already been reviewed twice that day. Discussions
-decouple the record from the merge.
-
-**Do not add new round entries here.** Post to the area's Discussions category instead. Title
-format `RT <date> - area <N> - <rung> (<Version>) - yield <n>`; first line of the body
-`<rung> (<Version>) | effort: <effort> | <date>`.
-
-**Migration complete as of 2026-08-06.** All 15 areas have a record: area 15's three rounds
-(#152-154), plus each other area's most recent round backfilled verbatim from this file
-(#158-171).
-
-**`last_focus:` is retired.** The next area is the one whose most recent Discussion has the
-oldest `createdAt`. That rests on an invariant — **creation order equals review-recency
-order** — which the backfill broke and discussion #184 restored: area 15's three records were
-posted before the other fourteen areas were backfilled, so by creation order the most recently
-reviewed area looked like the stalest one. Any future backfill or out-of-order re-post must
-restore the invariant the same way, with a marker record. The value below is left as a
-historical marker and is **not** to be updated.
-
-Everything below this line is the frozen historical record, newest first. **It stays**: eleven
-in-repo files and the `/red-team` skill cite `log.md` by path, and the `T-nnn` ids it carries
-are frozen, not retired.
+Rotation reads staleness from `createdAt`, so **creation order must equal review-recency
+order**. A backfill breaks that by construction: anything posted today gets a newer timestamp
+than a record of yesterday's round. The 2026-08-06 backfill posted all fourteen remaining
+areas in one pass, in review-recency order, and discussion #184 repaired area 15 — whose
+three records had been posted *before* that backfill, making the most recently reviewed area
+look like the stalest one — with a marker record. Any future backfill or out-of-order re-post
+must restore the invariant the same way.
 
 ---
 
@@ -1405,5 +1367,3 @@ date: 2026-07-28
 tier: n/a (directed single-finding fix)
 yield: 1 filed-and-fixed same session (T-366, P3)
 notes: Handed a pre-verified finding for `expand_and_reinsert` (`ts_prune_reinsert.cpp:396`): it scored the rebuilt backbone with `score_tree()`, which on `has_inapplicable` data falls through to `fitch_na_score` and writes NA-regime `prelim`, while the insertion loop's `wagner_incremental_rescore` (`ts_wagner.cpp:131-166`) only maintains standard-Fitch `prelim` with no NA branch — `compute_insertion_edge_sets` then reads this mixed-regime array to choose reinsertion edges. The two sibling backbone-scoring call sites (`ts_wagner.cpp:449`, `ts_sector.cpp:917`) both already use the EW-proxy `fitch_score`, so this one call site reads as an oversight. **Fix applied:** swapped to `fitch_score(tree, ds)`. **Verification performed this session:** built clean; ran an NA repro (`Vinther2008`, then `Dikow2009` for a stronger test) with `pruneReinsertCycles` forced nonzero (default is `0L`, fully inert otherwise) — confirmed the path was actually exercised via `prune_reinsert_ms` timing (0ms before forcing the params right, ~1.3s after). Direct A/B (temporarily reverted the fix, rebuilt, re-ran identical seeds): on `Dikow2009` with 6 fixed RNG seeds, 5/6 gave byte-identical final score AND topology (`write.tree` hash) before vs. after; seed 4 diverged (1614 before → 1616 after) — confirms the fix changes search trajectory on this now-live path, exactly as the finding predicted, with no crash and no corrupted score in either arm. Existing `test-ts-prune-reinsert.R` (52 tests) and `test-ts-sector.R` (52 tests) both still pass. **Not done, flagged as a separate follow-up (do not conflate with this fix):** `fitch_na_score`'s `local_cost` is only written on its non-NA branch, which independently corrupts `wagner_incremental_rescore`'s `old_cost` subtraction for NA blocks — this changes placement further and needs its own A/B before landing. **This entry was not independently re-verified by a second reviewer** (no red-team-verifier pass) — the A/B above is empirical evidence, not a peer confirmation; a future round should sanity-check the reasoning, not just re-trust this note. This was a directed fix task, not a rotation round, so `last_focus` is left untouched.
-
-last_focus: 15

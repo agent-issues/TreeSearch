@@ -36,7 +36,7 @@ target anything else and it silently stays open.
 
 Write cross-repo references fully qualified (`agent-issues/TreeSearch#42`) — a bare `#42`
 means this repo and upstream numbers separately. Pre-tracker `T-nnn` ids are **frozen, not
-retired**: they persist in shipped source comments and in `dev/red-team/log.md`, and
+retired**: they persist in shipped source comments and in the frozen `dev/red-team/log.md`, and
 `dev/red-team/migration-map*.tsv` resolve them.
 
 ### Agent identity — commit and post as `ms609-agent`, never as the maintainer
@@ -290,8 +290,8 @@ These recur; they are activities, not issues, and have no tracker entry:
 | File | Purpose |
 |------|---------|
 | **GitHub issues** (`agent-issues/TreeSearch`) | The task queue and the findings tracker |
-| **GitHub Discussions**, one category per `area:N` | Red-team round records. `dev/red-team/log.md` is **closed to new entries** — it keeps only the model-version legend and the frozen pre-2026-08 history |
-| `dev/red-team/` | Scope and tiers: `focus-areas.md`; frozen `log.md`, `findings-archive.md`, `migration-map*.tsv` |
+| **GitHub Discussions**, one category per `area:N` | Red-team round records, and the only thing rotation reads: the next area is the one whose most recent post has the oldest `createdAt`. `dev/red-team/log.md` is **frozen** — pre-2026-08 history only, no live field |
+| `dev/red-team/` | Scope, tiers and the model-version legend: `focus-areas.md`; frozen `log.md`, `findings-archive.md`, `migration-map*.tsv` |
 | `dev/strategy.md` | Historical strategic narrative (was `coordination.md`; **not** kept current) |
 | `completed-tasks.md` | **Frozen.** Pre-tracker decisions worth not re-litigating; still worth grepping |
 | `dev/expertise/*.md` | Standing-practice methodology references |
