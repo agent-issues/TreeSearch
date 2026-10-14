@@ -1,5 +1,9 @@
 # To integrate into 2.0.0 notes
 
+- C++ code no longer executes the x86 POPCNT instruction on CPUs that lack
+  it, which crashed R with "illegal operation" on some virtual machines
+  (ms609/TreeTools#287). Requires TreeTools > 2.4.1.
+
 - New `Bremer()` calculates Bremer (decay) support for each clade of a reference
   tree.
 
