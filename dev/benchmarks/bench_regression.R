@@ -154,7 +154,7 @@ for (nm in names(benchmarks)) {
     next
   }
 
-  vals <- strsplit(trimws(output[length(output)]), "\s+")[[1]]
+  vals <- strsplit(trimws(output[length(output)]), "\\s+")[[1]]
   if (length(vals) < 2) {
     cat("  Unexpected output:", output[length(output)], "\n")
     n_fail <- n_fail + 1L
