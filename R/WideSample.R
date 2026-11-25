@@ -70,6 +70,10 @@
 #'       is additionally called as `dist(trees[[i]], trees)` and must then
 #'       return a numeric vector of length `length(trees)` (the distances from
 #'       tree `i` to every tree).  `ClusteringInfoDistance()` satisfies both.
+#'       When `dist` is one of the \pkg{TreeDist} split-based distances, such
+#'       as `ClusteringInfoDistance()`, `trees` are converted to `Splits` once
+#'       for this matrix-free path, so that the conversion is not repeated
+#'       for every tree `i`.
 #'     \item A pre-computed `dist` object or square numeric matrix whose size
 #'       matches `length(trees)`.
 #'   }
@@ -360,8 +364,17 @@ WideSample <- function(
 #' [Coreset::FarFirst()]. Probes
 #' the `(tree, trees)` calling form once up front and fails clearly if the
 #' supplied `dist` function does not support it.
+#'
+#' When `dist` is a \pkg{TreeDist} function known to accept `Splits` (see
+#' `.WideSampleSplitsDist()`), the trees are converted with
+#' [TreeTools::as.Splits()] once, here, rather than by `dist` on every column.
+#' The distances are bit-identical; each column is faster.  Any other `dist`
+#' receives the `phylo` trees, as does a listed one if conversion fails.
 #' @keywords internal
 .WideSampleColumnOracle <- function(dist, trees, nTrees) {
+  if (.WideSampleSplitsDist(dist)) {
+    trees <- tryCatch(as.Splits(trees), error = function(e) trees)
+  }
   probe <- tryCatch(
     dist(trees[[1L]], trees),
     error = function(e) {
@@ -377,6 +390,29 @@ WideSample <- function(
          else class(probe)[[1L]], ".")
   }
   function(i) as.numeric(dist(trees[[i]], trees))
+}
+
+#' Is `dist` a TreeDist function that takes pre-computed `Splits`?
+#'
+#' Each listed function returns bit-identical `dist(tree, trees)` columns
+#' from `Splits` as from `phylo` input, and is faster from `Splits`.
+#' Matching is by identity, so wrappers and user functions are not listed and
+#' keep receiving `phylo` trees.
+#' @return Logical scalar.
+#' @keywords internal
+.WideSampleSplitsDist <- function(dist) {
+  splitsFns <- list(
+    TreeDist::ClusteringInfoDistance,
+    TreeDist::PhylogeneticInfoDistance,
+    TreeDist::MatchingSplitInfoDistance,
+    TreeDist::MatchingSplitDistance,
+    TreeDist::RobinsonFoulds,
+    TreeDist::InfoRobinsonFoulds,
+    TreeDist::NyeSimilarity,
+    TreeDist::JaccardRobinsonFoulds
+  )
+  # Return:
+  any(vapply(splitsFns, identical, logical(1), dist))
 }
 
 #' Subset a multiPhylo preserving attributes

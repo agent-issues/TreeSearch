@@ -1,5 +1,10 @@
 # To integrate into 2.0.0 notes
 
+- `WideSample(effort = 1)` on tree sets too large for a distance matrix
+  converts the trees to splits once, rather than once per selected tree,
+  when `dist` is a split-based TreeDist distance such as the default
+  `ClusteringInfoDistance()`. Selections are unchanged.
+
 - `EasyTrees()` no longer freezes for minutes, with no message, when loading
   thousands of trees: trees are sampled from at most 512 evenly spaced trees
   in the selected range, with a notification saying so, and errors that arise

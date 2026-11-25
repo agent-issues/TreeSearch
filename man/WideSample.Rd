@@ -25,6 +25,10 @@ WideSample(
 is additionally called as \code{dist(trees[[i]], trees)} and must then
 return a numeric vector of length \code{length(trees)} (the distances from
 tree \code{i} to every tree).  \code{ClusteringInfoDistance()} satisfies both.
+When \code{dist} is one of the \pkg{TreeDist} split-based distances, such
+as \code{ClusteringInfoDistance()}, \code{trees} are converted to \code{Splits} once
+for this matrix-free path, so that the conversion is not repeated
+for every tree \code{i}.
 \item A pre-computed \code{dist} object or square numeric matrix whose size
 matches \code{length(trees)}.
 }}

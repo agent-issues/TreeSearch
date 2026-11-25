@@ -33,7 +33,7 @@ test_that("n = 1 returns the medoid deterministically", {
 
 test_that("n = 1 medoid falls back to a matrix-free seed past the ceiling", {
   skip_if_not_installed("TreeDist")
-  withr::local_options(TreeSearch.WideSample.buildCeiling = 5L)
+  withr::local_options(WideSample.buildCeiling = 5L)
   trees <- as.phylo(0:9, nTip = 8)  # 10 > the (lowered) build ceiling of 5
   names(trees) <- paste0("t", seq_along(trees))
   result <- WideSample(trees, 1)    # function path, no matrix built
@@ -263,4 +263,77 @@ test_that(".WideSampleColumnOracle probes the (tree, trees) contract", {
     TreeSearch:::.WideSampleColumnOracle(badFn, trees, length(trees)),
     "length"
   )
+})
+
+test_that(".WideSampleColumnOracle converts to Splits once for TreeDist dists", {
+  skip_if_not_installed("TreeDist")
+  trees <- as.phylo(0:9, nTip = 8)
+  # Reorder one tree's leaves: conversion must still align leaf labels.
+  trees[[4]] <- RenumberTips(trees[[4]], rev(TipLabels(trees[[4]])))
+  nTrees <- length(trees)
+  ref <- as.matrix(TreeDist::ClusteringInfoDistance(trees))
+
+  oracle <- TreeSearch:::.WideSampleColumnOracle(
+    TreeDist::ClusteringInfoDistance, trees, nTrees
+  )
+  held <- environment(oracle)[["trees"]]
+  expect_true(all(vapply(held, inherits, logical(1), "Splits")))
+  for (i in seq_len(nTrees)) {
+    expect_equal(oracle(i), unname(ref[, i]))
+  }
+
+  # Each listed function gives the same column from Splits as from phylo.
+  for (fn in list(TreeDist::PhylogeneticInfoDistance,
+                  TreeDist::MatchingSplitInfoDistance,
+                  TreeDist::MatchingSplitDistance,
+                  TreeDist::RobinsonFoulds,
+                  TreeDist::InfoRobinsonFoulds,
+                  TreeDist::NyeSimilarity,
+                  TreeDist::JaccardRobinsonFoulds)) {
+    expect_true(TreeSearch:::.WideSampleSplitsDist(fn))
+    expect_identical(TreeSearch:::.WideSampleColumnOracle(fn, trees, nTrees)(4L),
+                     as.numeric(fn(trees[[4]], trees)))
+  }
+
+  # Unlisted functions, including wrappers of listed ones, receive phylo.
+  wrapper <- function(a, b) TreeDist::ClusteringInfoDistance(a, b)
+  expect_false(TreeSearch:::.WideSampleSplitsDist(wrapper))
+  phyloOnly <- function(a, b) {
+    stopifnot(inherits(a, "phylo"), inherits(b, "multiPhylo"))
+    TreeDist::ClusteringInfoDistance(a, b)
+  }
+  expect_equal(
+    TreeSearch:::.WideSampleColumnOracle(phyloOnly, trees, nTrees)(2L),
+    unname(ref[, 2L])
+  )
+})
+
+test_that(".WideSampleColumnOracle keeps phylo trees if conversion fails", {
+  skip_if_not_installed("TreeDist")
+  trees <- as.phylo(0:9, nTip = 8)
+  local_mocked_bindings(as.Splits = function(...) stop("no splits"))
+  oracle <- TreeSearch:::.WideSampleColumnOracle(
+    TreeDist::ClusteringInfoDistance, trees, length(trees)
+  )
+  expect_s3_class(environment(oracle)[["trees"]], "multiPhylo")
+  expect_equal(oracle(3L),
+               as.numeric(TreeDist::ClusteringInfoDistance(trees[[3]], trees)))
+})
+
+test_that("matrix-free FarFirst selects as from a pre-computed matrix", {
+  skip_if_not_installed("TreeDist")
+  skip_if_not_installed("Coreset")
+  trees <- as.phylo(0:59, nTip = 12)
+  withr::local_options(WideSample.buildCeiling = 5L)
+  expect_identical(
+    WideSample(trees, 6, effort = 1),
+    WideSample(trees, 6, dist = TreeDist::ClusteringInfoDistance(trees),
+               effort = 1)
+  )
+  # The matrix-free medoid fallback picks the same seed as a phylo oracle.
+  phyloCol <- function(i) {
+    as.numeric(TreeDist::ClusteringInfoDistance(trees[[i]], trees))
+  }
+  seed <- Coreset::FarFirst(k = 1L, d = phyloCol, N = length(trees))
+  expect_equal(WideSample(trees, 1)[[1]], trees[[seed]])
 })
