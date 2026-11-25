@@ -1,6 +1,13 @@
 # To integrate into 2.0.0 notes
 
 - `WideSample(effort = 1)` on tree sets too large for a distance matrix
+  prepares the trees once with `TreeDist::DistanceOracle()`, where TreeDist
+  provides it and `dist` is `ClusteringInfoDistance()`, `InfoRobinsonFoulds()`,
+  `RobinsonFoulds()`, `MatchingSplitDistance()` or `JaccardRobinsonFoulds()`.
+  Each selected tree's distances then take a fraction of the time
+  (ms609/TreeDist#232). Selections are unchanged.
+
+- `WideSample(effort = 1)` on tree sets too large for a distance matrix
   converts the trees to splits once, rather than once per selected tree,
   when `dist` is a split-based TreeDist distance such as the default
   `ClusteringInfoDistance()`. Selections are unchanged.
