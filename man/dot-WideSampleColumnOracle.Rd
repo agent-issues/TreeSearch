@@ -13,4 +13,11 @@ Returns a function of one 1-based index \code{i} giving the distances from tree
 the \verb{(tree, trees)} calling form once up front and fails clearly if the
 supplied \code{dist} function does not support it.
 }
+\details{
+When \code{dist} is a \pkg{TreeDist} function known to accept \code{Splits} (see
+\code{.WideSampleSplitsDist()}), the trees are converted with
+\code{\link[TreeTools:as.Splits]{TreeTools::as.Splits()}} once, here, rather than by \code{dist} on every column.
+The distances are bit-identical; each column is faster.  Any other \code{dist}
+receives the \code{phylo} trees, as does a listed one if conversion fails.
+}
 \keyword{internal}
