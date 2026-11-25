@@ -17,6 +17,9 @@ supplied \code{dist} function does not support it.
 When \code{dist} is a \pkg{TreeDist} function known to accept \code{Splits} (see
 \code{.WideSampleSplitsDist()}), the trees are converted with
 \code{\link[TreeTools:as.Splits]{TreeTools::as.Splits()}} once, here, rather than by \code{dist} on every column.
+Where \pkg{TreeDist} also provides \code{DistanceOracle()} for \code{dist} (see
+\code{.WideSampleDistanceOracle()}), the trees are then prepared once in C++ and
+each column is read from the prepared set.
 The distances are bit-identical; each column is faster.  Any other \code{dist}
 receives the \code{phylo} trees, as does a listed one if conversion fails.
 }

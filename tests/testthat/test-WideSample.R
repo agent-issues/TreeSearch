@@ -267,6 +267,7 @@ test_that(".WideSampleColumnOracle probes the (tree, trees) contract", {
 
 test_that(".WideSampleColumnOracle converts to Splits once for TreeDist dists", {
   skip_if_not_installed("TreeDist")
+  local_mocked_bindings(.WideSampleDistanceOracle = function(dist) NULL)
   trees <- as.phylo(0:9, nTip = 8)
   # Reorder one tree's leaves: conversion must still align leaf labels.
   trees[[4]] <- RenumberTips(trees[[4]], rev(TipLabels(trees[[4]])))
@@ -310,6 +311,7 @@ test_that(".WideSampleColumnOracle converts to Splits once for TreeDist dists", 
 
 test_that(".WideSampleColumnOracle keeps phylo trees if conversion fails", {
   skip_if_not_installed("TreeDist")
+  local_mocked_bindings(.WideSampleDistanceOracle = function(dist) NULL)
   trees <- as.phylo(0:9, nTip = 8)
   local_mocked_bindings(as.Splits = function(...) stop("no splits"))
   oracle <- TreeSearch:::.WideSampleColumnOracle(
@@ -318,6 +320,69 @@ test_that(".WideSampleColumnOracle keeps phylo trees if conversion fails", {
   expect_s3_class(environment(oracle)[["trees"]], "multiPhylo")
   expect_equal(oracle(3L),
                as.numeric(TreeDist::ClusteringInfoDistance(trees[[3]], trees)))
+})
+
+test_that(".WideSampleDistanceOracle lists only supported distances", {
+  skip_if_not_installed("TreeDist")
+  expect_null(TreeSearch:::.WideSampleDistanceOracle(TreeDist::NyeSimilarity))
+  expect_null(TreeSearch:::.WideSampleDistanceOracle(
+    function(a, b) TreeDist::RobinsonFoulds(a, b)
+  ))
+  expect_identical(
+    TreeSearch:::.WideSampleDistanceOracle(TreeDist::RobinsonFoulds),
+    get0("DistanceOracle", envir = asNamespace("TreeDist"), inherits = FALSE)
+  )
+})
+
+test_that(".WideSampleColumnOracle reads columns from a DistanceOracle", {
+  skip_if_not_installed("TreeDist")
+  trees <- as.phylo(0:9, nTip = 8)
+  calls <- 0L
+  local_mocked_bindings(.WideSampleDistanceOracle = function(dist) {
+    function(trees, Func) {
+      calls <<- calls + 1L
+      function(i) setNames(Func(trees[[i]], trees), names(trees))
+    }
+  })
+  oracle <- TreeSearch:::.WideSampleColumnOracle(
+    TreeDist::RobinsonFoulds, trees, length(trees)
+  )
+  expect_identical(oracle(3L),
+                   as.numeric(TreeDist::RobinsonFoulds(trees[[3]], trees)))
+  expect_equal(calls, 1L)
+  expect_true(all(vapply(environment(oracle)[["trees"]], inherits, logical(1),
+                         "Splits")))
+})
+
+test_that(".WideSampleColumnOracle falls back if DistanceOracle fails", {
+  skip_if_not_installed("TreeDist")
+  trees <- as.phylo(0:9, nTip = 8)
+  local_mocked_bindings(.WideSampleDistanceOracle = function(dist) {
+    function(trees, Func) stop("no oracle")
+  })
+  oracle <- TreeSearch:::.WideSampleColumnOracle(
+    TreeDist::RobinsonFoulds, trees, length(trees)
+  )
+  expect_identical(oracle(3L),
+                   as.numeric(TreeDist::RobinsonFoulds(trees[[3]], trees)))
+})
+
+test_that("DistanceOracle columns match dist(trees[[i]], trees)", {
+  skip_if_not_installed("TreeDist")
+  skip_if(is.null(TreeSearch:::.WideSampleDistanceOracle(
+    TreeDist::ClusteringInfoDistance
+  )), "TreeDist lacks DistanceOracle()")
+  trees <- as.phylo(0:9, nTip = 8)
+  trees[[4]] <- RenumberTips(trees[[4]], rev(TipLabels(trees[[4]])))
+  for (fn in list(TreeDist::ClusteringInfoDistance,
+                  TreeDist::InfoRobinsonFoulds,
+                  TreeDist::RobinsonFoulds,
+                  TreeDist::MatchingSplitDistance,
+                  TreeDist::JaccardRobinsonFoulds)) {
+    oracle <- TreeSearch:::.WideSampleColumnOracle(fn, trees, length(trees))
+    expect_equal(oracle(4L), as.numeric(fn(trees[[4]], trees)),
+                 tolerance = 1e-12)
+  }
 })
 
 test_that("matrix-free FarFirst selects as from a pre-computed matrix", {

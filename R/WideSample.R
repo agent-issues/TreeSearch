@@ -368,12 +368,23 @@ WideSample <- function(
 #' When `dist` is a \pkg{TreeDist} function known to accept `Splits` (see
 #' `.WideSampleSplitsDist()`), the trees are converted with
 #' [TreeTools::as.Splits()] once, here, rather than by `dist` on every column.
+#' Where \pkg{TreeDist} also provides `DistanceOracle()` for `dist` (see
+#' `.WideSampleDistanceOracle()`), the trees are then prepared once in C++ and
+#' each column is read from the prepared set.
 #' The distances are bit-identical; each column is faster.  Any other `dist`
 #' receives the `phylo` trees, as does a listed one if conversion fails.
 #' @keywords internal
 .WideSampleColumnOracle <- function(dist, trees, nTrees) {
   if (.WideSampleSplitsDist(dist)) {
     trees <- tryCatch(as.Splits(trees), error = function(e) trees)
+  }
+  Prepare <- .WideSampleDistanceOracle(dist)
+  if (!is.null(Prepare)) {
+    oracle <- tryCatch(Prepare(trees, dist), error = function(e) NULL)
+    if (!is.null(oracle)) {
+      # Return:
+      return(function(i) as.numeric(oracle(i)))
+    }
   }
   probe <- tryCatch(
     dist(trees[[1L]], trees),
@@ -390,6 +401,31 @@ WideSample <- function(
          else class(probe)[[1L]], ".")
   }
   function(i) as.numeric(dist(trees[[i]], trees))
+}
+
+#' `TreeDist::DistanceOracle()`, where it supports `dist`
+#'
+#' `DistanceOracle()` (ms609/TreeDist#232) prepares the trees once and returns
+#' `function(i)` giving `dist(trees[[i]], trees)`.  `NyeSimilarity()` is not
+#' listed: it returns a similarity by default.  Matching is by identity.
+#' @return `TreeDist::DistanceOracle`, or `NULL` if `dist` is not supported or
+#'   the installed TreeDist lacks it.
+#' @keywords internal
+.WideSampleDistanceOracle <- function(dist) {
+  oracleFns <- list(
+    TreeDist::ClusteringInfoDistance,
+    TreeDist::InfoRobinsonFoulds,
+    TreeDist::RobinsonFoulds,
+    TreeDist::MatchingSplitDistance,
+    TreeDist::JaccardRobinsonFoulds
+  )
+  if (!any(vapply(oracleFns, identical, logical(1), dist))) {
+    # Return:
+    return(NULL)
+  }
+  # Return:
+  get0("DistanceOracle", envir = asNamespace("TreeDist"), mode = "function",
+       inherits = FALSE)
 }
 
 #' Is `dist` a TreeDist function that takes pre-computed `Splits`?
